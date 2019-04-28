@@ -133,6 +133,7 @@ install_dependencies(){
         for depend in ${yum_depends[@]}; do
             error_detect_depends "yum -y install ${depend}"
         done
+		error_detect_depends "yum -y groupinstall development"
     elif check_sys packageManager apt; then
         apt_depends=(
             wget git autotools-dev cdbs debhelper dh-autoreconf dpkg-dev gettext libev-dev libpcre3-dev libudns-dev pkg-config fakeroot devscripts
@@ -141,6 +142,7 @@ install_dependencies(){
         for depend in ${apt_depends[@]}; do
             error_detect_depends "apt-get -y install ${depend}"
         done
+		error_detect_depends "apt-get -y install build-essential"
     fi
 }
 
@@ -183,6 +185,8 @@ Install() {
   fi
   disable_selinux
   echo -e "[${green}Info${plain}] Checking the system complete..."
+  echo "安装依赖软件..."
+  install_dependencies
   echo "安装Dnsmasq..."
   if check_sys packageManager yum; then
       error_detect_depends "yum -y install dnsmasq"
@@ -203,8 +207,6 @@ Install() {
       systemctl enable dnsmasq
       systemctl start dnsmasq
   fi
-  echo "安装依赖软件..."
-  install_dependencies
   echo "安装SNI Proxy..."
   rpm -qa |grep sniproxy
   if [ $? -eq 0 ]; then
@@ -249,7 +251,7 @@ Install() {
   fi
   echo -e "[${green}Info${plain}] dnsmasq and sniproxy startup complete..."
   echo ""
-  echo -e "${yellow}SNI Proxy 已完成安装并启动！${plain}"
+  echo -e "${yellow}Dnsmasq + SNI Proxy 已完成安装并启动！${plain}"
   echo ""
   echo ""
 }
