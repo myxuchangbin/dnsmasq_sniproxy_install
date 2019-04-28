@@ -1,8 +1,8 @@
 # Install Dnsmasq + SNI proxy
 
-    脚本默认自动配置Netflix解锁，前提是有一个能看Netflix的IP
+* 脚本默认自动配置`Netflix`解锁，前提是有一个能看`Netflix`的IP
 
-    如需添加更多解锁可手动编辑配置文件`/etc/dnsmasq.d/custom_netflix.conf`和`/etc/sniproxy.conf`
+* 如需添加更多解锁可手动编辑配置文件`/etc/dnsmasq.d/custom_netflix.conf`和`/etc/sniproxy.conf`
 
 * 脚本支持系统：CentOS 6+, Debian8+, Ubuntu16+
     * CentOS6/7 测试成功
