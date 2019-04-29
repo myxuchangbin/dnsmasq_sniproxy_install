@@ -161,6 +161,41 @@ install_check(){
     fi
 }
 
+config_firewall(){
+    ports="53 80 443"
+    if centosversion 6; then
+        /etc/init.d/iptables status > /dev/null 2>&1
+        if [ $? -eq 0 ]; then
+            for port in $ports
+            do
+                iptables -L -n | grep -i ${port} > /dev/null 2>&1
+                if [ $? -ne 0 ]; then
+                    iptables -I INPUT -m state --state NEW -m tcp -p tcp --dport ${port} -j ACCEPT
+                    iptables -I INPUT -m state --state NEW -m udp -p udp --dport ${port} -j ACCEPT
+                else
+                    echo -e "[${green}Info${plain}] port ${green}${port}${plain} already be enabled."
+                fi
+            done
+            /etc/init.d/iptables save
+            /etc/init.d/iptables restart
+        else
+            echo -e "[${yellow}Warning${plain}] iptables looks like not running or not installed, please enable port ${ports} manually if necessary."
+        fi
+    elif centosversion 7; then
+        systemctl status firewalld > /dev/null 2>&1
+        if [ $? -eq 0 ]; then
+            default_zone=$(firewall-cmd --get-default-zone)
+            firewall-cmd --permanent --zone=${default_zone} --add-port=53/tcp
+            firewall-cmd --permanent --zone=${default_zone} --add-port=53/udp
+            firewall-cmd --permanent --zone=${default_zone} --add-port=80/tcp
+            firewall-cmd --permanent --zone=${default_zone} --add-port=443/tcp
+            firewall-cmd --reload
+        else
+            echo -e "[${yellow}Warning${plain}] firewalld looks like not running or not installed, please enable port ${ports} manually if necessary."
+        fi
+    fi
+}
+
 Hello() {
   echo ""
   echo -e "${yellow}Dnsmasq + SNI Proxy自动安裝脚本${plain}"
@@ -180,7 +215,6 @@ Help() {
 
 Install() {
   Hello
-  echo ""
   echo "检测您的系統..."
   if ! install_check; then
       echo -e "[${red}Error${plain}] Your OS is not supported to run it!"
@@ -270,6 +304,11 @@ Install() {
       systemctl restart sniproxy || (echo -e "[${red}Error:${plain}] Failed to start sniproxy." && exit 1)
   fi
   echo -e "[${green}Info${plain}] dnsmasq and sniproxy startup complete..."
+  if check_sys packageManager yum; then
+      echo "检查防火墙端口..."
+      config_firewall
+      echo -e "[${green}Info${plain}] Firewall port detection complete..."
+  fi
   echo ""
   echo -e "${yellow}Dnsmasq + SNI Proxy 已完成安装并启动！${plain}"
   echo ""
