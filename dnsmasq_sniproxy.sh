@@ -164,7 +164,7 @@ install_check(){
 Hello() {
   echo ""
   echo -e "${yellow}Dnsmasq + SNI Proxy自动安裝脚本${plain}"
-  echo -e "${yellow}支持系统:  CentOS 7+, Debian8+, Ubuntu16+${plain}"
+  echo -e "${yellow}支持系统:  CentOS 6+, Debian8+, Ubuntu16+${plain}"
   echo ""
 }
 
@@ -184,7 +184,7 @@ Install() {
   echo "检测您的系統..."
   if ! install_check; then
       echo -e "[${red}Error${plain}] Your OS is not supported to run it!"
-      echo "Please change to CentOS 7+/Debian 8+/Ubuntu 16+ and try again."
+      echo "Please change to CentOS 6+/Debian 8+/Ubuntu 16+ and try again."
       exit 1
   fi
   disable_selinux
@@ -201,7 +201,7 @@ Install() {
   sed -i "s/PublicIP/`get_ip`/g" /etc/dnsmasq.d/custom_netflix.conf
   if check_sys packageManager yum; then
     if centosversion 6; then
-      sed -i 's/^#\(conf\-dir\=\/etc\/dnsmasq\.d\)/\1/' /etc/dnsmasq.conf
+      [ "$(grep -x -E "(conf-dir=/etc/dnsmasq.d|conf-dir=/etc/dnsmasq.d,.bak|conf-dir=/etc/dnsmasq.d/,\*.conf|conf-dir=/etc/dnsmasq.d,.rpmnew,.rpmsave,.rpmorig)" /etc/dnsmasq.conf)" ] || echo "conf-dir=/etc/dnsmasq.d" >> /etc/dnsmasq.conf
       chkconfig dnsmasq on
       service dnsmasq start
     elif centosversion 7; then
@@ -209,13 +209,21 @@ Install() {
       systemctl start dnsmasq
     fi
   elif check_sys packageManager apt; then
+      [ "$(grep -x -E "(conf-dir=/etc/dnsmasq.d|conf-dir=/etc/dnsmasq.d,.bak|conf-dir=/etc/dnsmasq.d/,\*.conf|conf-dir=/etc/dnsmasq.d,.rpmnew,.rpmsave,.rpmorig)" /etc/dnsmasq.conf)" ] || echo "conf-dir=/etc/dnsmasq.d" >> /etc/dnsmasq.conf
       systemctl enable dnsmasq
-      systemctl start dnsmasq
+      systemctl restart dnsmasq
   fi
   echo "安装SNI Proxy..."
-  rpm -qa |grep sniproxy
-  if [ $? -eq 0 ]; then
-    rpm -e sniproxy
+  if check_sys packageManager yum; then
+    rpm -qa | grep sniproxy >/dev/null 2>&1
+    if [ $? -eq 0 ]; then
+      rpm -e sniproxy
+    fi
+  elif check_sys packageManager apt; then
+    dpkg -s sniproxy >/dev/null 2>&1
+    if [ $? -eq 0 ]; then
+      dpkg -r sniproxy
+    fi
   fi
   cd /tmp
   if [ -e sniproxy ]; then
@@ -231,15 +239,17 @@ Install() {
         rpmbuild --define "_sourcedir `pwd`" --define "_topdir /tmp/sniproxy/rpmbuild" --define "debug_package %{nil}" -ba redhat/sniproxy.spec
       fi
       error_detect_depends "yum -y install /tmp/sniproxy/rpmbuild/RPMS/x86_64/sniproxy-*.rpm"
+      wget https://github.com/dlundquist/sniproxy/raw/master/redhat/sniproxy.init -O /etc/init.d/sniproxy >/dev/null 2>&1 && chmod +x /etc/init.d/sniproxy
   elif check_sys packageManager apt; then
       ./autogen.sh && dpkg-buildpackage
       error_detect_depends "dpkg -i --no-debsig ../sniproxy_*.deb"
+      wget https://github.com/dlundquist/sniproxy/raw/master/debian/init.d -O /etc/init.d/sniproxy >/dev/null 2>&1 && chmod +x /etc/init.d/sniproxy
+      wget https://github.com/myxuchangbin/dnsmasq_sniproxy_install/raw/master/sniproxy.default -O /etc/default/sniproxy >/dev/null 2>&1
   fi
   wget https://github.com/myxuchangbin/dnsmasq_sniproxy_install/raw/master/sniproxy.conf -O /etc/sniproxy.conf >/dev/null 2>&1
   if [ ! -e /var/log/sniproxy ]; then
     mkdir /var/log/sniproxy
   fi
-  wget https://github.com/dlundquist/sniproxy/raw/master/redhat/sniproxy.init -O /etc/init.d/sniproxy >/dev/null 2>&1 && chmod +x /etc/init.d/sniproxy
   echo "检查安装情况..."
   [ ! -f /usr/sbin/sniproxy ] && echo -e "[${red}Error${plain}] 安装Sniproxy出现问题." && exit 1
   echo -e "[${green}Info${plain}] Checking the sniproxy services complete..."
@@ -255,13 +265,15 @@ Install() {
       systemctl start sniproxy || (echo -e "[${red}Error:${plain}] Failed to start sniproxy." && exit 1)
     fi
   elif check_sys packageManager apt; then
+      systemctl daemon-reload
       systemctl enable sniproxy > /dev/null 2>&1
-      systemctl start sniproxy || (echo -e "[${red}Error:${plain}] Failed to start sniproxy." && exit 1)
+      systemctl restart sniproxy || (echo -e "[${red}Error:${plain}] Failed to start sniproxy." && exit 1)
   fi
   echo -e "[${green}Info${plain}] dnsmasq and sniproxy startup complete..."
   echo ""
   echo -e "${yellow}Dnsmasq + SNI Proxy 已完成安装并启动！${plain}"
   echo ""
+  echo -e "${yellow}Dnsmasq 监听IP：$(get_ip)${plain}"
   echo ""
 }
 
