@@ -19,7 +19,9 @@ wget --no-check-certificate -O dnsmasq_sniproxy.sh https://github.com/myxuchangb
 ```
 
 ### 使用方法
-修改DNS地址修改为这个主机的IP，建议只保留一个DNS地址
+将代理vps的DNS地址修改为这个主机的IP即可，如果不能用，只保留一个DNS试一下。
+
+为防止滥用，建议不要随意公布IP地址；或者使用防火墙来限制外部IP访问。
 
 
-___本脚本只用作解锁流媒体使用，不可用于FQ___
+___本脚本只用作解锁流媒体使用，不能用来FQ。___
