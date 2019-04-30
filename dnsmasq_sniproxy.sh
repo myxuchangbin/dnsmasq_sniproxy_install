@@ -159,6 +159,7 @@ install_check(){
     else
         return 1
     fi
+	[ "$(netstat -lpn | grep -wE '53|80|443')" ] && echo -e "[${red}Error${plain}] There are other conflicting listening services, Please check if you have nginx and apache or other web services enabled.." && exit 1
 }
 
 config_firewall(){
