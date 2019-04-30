@@ -7,6 +7,7 @@
 * 脚本支持系统：CentOS 6+, Debian8+, Ubuntu16+
     * CentOS6/7 测试成功
     * Debian8+, Ubuntu16+ 测试成功
+    * 如果脚本最后显示的IP和实际IP不相符，请手动修改一下文件`/etc/sniproxy.conf`中的IP地址
 
 ### 安装方法：
 ``` Bash
@@ -23,5 +24,5 @@ wget --no-check-certificate -O dnsmasq_sniproxy.sh https://github.com/myxuchangb
 
 为防止滥用，建议不要随意公布IP地址；或者使用防火墙来限制外部IP访问。
 
-
+---
 ___本脚本只用作解锁流媒体使用，不能用来FQ。___
