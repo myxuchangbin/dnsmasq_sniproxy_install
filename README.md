@@ -1,4 +1,4 @@
-# Install Dnsmasq + SNI proxy
+# Install [Dnsmasq](http://thekelleys.org.uk/dnsmasq/doc.html) + [SNI proxy](https://github.com/dlundquist/sniproxy)
 
 * 脚本默认配置`Netflix`解锁，前提是能看`Netflix`的IP
 
