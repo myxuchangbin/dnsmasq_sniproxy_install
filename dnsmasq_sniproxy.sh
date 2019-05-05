@@ -338,9 +338,9 @@ Install() {
     fi
     install_cleanup
     echo ""
-    echo -e "${yellow}Dnsmasq + SNI Proxy 已完成安装并启动！${plain}"
+    echo -e "${yellow}Dnsmasq + SNI Proxy 已完成安装！${plain}"
     echo ""
-    echo -e "${yellow}Dnsmasq 监听IP：$(get_ip)${plain}"
+    echo -e "${yellow}将您的DNS更改为 $(get_ip) 即可以观看Netflix节目了。${plain}"
     echo ""
 }
 

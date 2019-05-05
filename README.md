@@ -2,7 +2,7 @@
 
 * 脚本默认配置`Netflix`解锁，前提是能看`Netflix`的IP
 
-* 添加更多解锁需要手动编辑配置文件`/etc/dnsmasq.d/custom_netflix.conf`和`/etc/sniproxy.conf`
+* 解锁更多流媒体请手动编辑配置文件`/etc/dnsmasq.d/custom_netflix.conf`和`/etc/sniproxy.conf`
 
 * 脚本支持系统：CentOS 6+, Debian8+, Ubuntu16+
     * CentOS6/7 测试成功
@@ -20,9 +20,10 @@ wget --no-check-certificate -O dnsmasq_sniproxy.sh https://github.com/myxuchangb
 ```
 
 ### 使用方法
-将代理vps的DNS地址修改为这个主机的IP即可，如果不能用，只保留一个DNS试一下。
+将您代理VPS的DNS地址修改为这个主机的IP即可，如果不能用，只保留一个DNS试一下。
 
-为防止滥用，建议不要随意公布IP地址；或者使用防火墙来限制外部IP访问。
+防止滥用，建议不要随意公布IP地址，或者提前使用防火墙做好限制工作。
 
 ---
-___本脚本只用作解锁流媒体使用，不能用来FQ。___
+
+___本脚本仅用作解锁流媒体使用，不建议代理敏感网站（即Google，Facebook...）。___
