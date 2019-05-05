@@ -117,8 +117,7 @@ config_firewall(){
     if centosversion 6; then
         /etc/init.d/iptables status > /dev/null 2>&1
         if [ $? -eq 0 ]; then
-            for port in $ports
-            do
+            for port in ${ports}; do
                 iptables -L -n | grep -i ${port} > /dev/null 2>&1
                 if [ $? -ne 0 ]; then
                     iptables -I INPUT -m state --state NEW -m tcp -p tcp --dport ${port} -j ACCEPT
@@ -241,7 +240,6 @@ install_check(){
     else
         return 1
     fi
-    [ "$(netstat -lpn | grep -wE '53|80|443')" ] && echo -e "[${red}Error${plain}] There are other conflicting listening services, Please check if you have nginx and apache or other web services enabled.." && exit 1
 }
 
 Hello() {
@@ -269,6 +267,9 @@ Install() {
         echo "Please change to CentOS 6+/Debian 8+/Ubuntu 16+ and try again."
         exit 1
     fi
+    for aport in 80 443 53; do
+        netstat -a -n -p | grep LISTEN | grep -P "\d+\.\d+\.\d+\.\d+:${aport}" > /dev/null && echo -e "[${red}Error${plain}] required port ${aport} already in use\n" && exit 1
+    done
     disable_selinux
     echo -e "[${green}Info${plain}] Checking the system complete..."
     echo "安装依赖软件..."
