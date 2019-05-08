@@ -26,4 +26,4 @@ wget --no-check-certificate -O dnsmasq_sniproxy.sh https://github.com/myxuchangb
 
 ---
 
-___本脚本仅用作解锁流媒体使用，不建议代理敏感网站（即Google，Facebook...）。___
+___本脚本仅用作解锁流媒体使用。___
