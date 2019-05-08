@@ -267,6 +267,11 @@ Install() {
         echo "Please change to CentOS 6+/Debian 8+/Ubuntu 16+ and try again."
         exit 1
     fi
+	if check_sys packageManager yum; then
+		error_detect_depends "yum -y install net-tools"
+	elif check_sys packageManager apt; then
+		error_detect_depends "apt-get -y install net-tools"
+	fi
     for aport in 80 443 53; do
         netstat -a -n -p | grep LISTEN | grep -P "\d+\.\d+\.\d+\.\d+:${aport}" > /dev/null && echo -e "[${red}Error${plain}] required port ${aport} already in use\n" && exit 1
     done
