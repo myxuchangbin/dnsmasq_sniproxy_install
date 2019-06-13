@@ -150,6 +150,7 @@ install_cleanup(){
     cd  /tmp/
     rm -rf dnsmasq-2.80 dnsmasq-2.80.tar.gz
     rm -rf sniproxy
+    rm -rf proxy-domains.txt out-proxy-domains.txt
 }
 
 install_dependencies(){
@@ -226,6 +227,9 @@ install_sniproxy(){
         download /etc/default/sniproxy https://github.com/myxuchangbin/dnsmasq_sniproxy_install/raw/master/sniproxy.default
     fi
     download /etc/sniproxy.conf https://github.com/myxuchangbin/dnsmasq_sniproxy_install/raw/master/sniproxy.conf
+    cp -rf /tmp/proxy-domains.txt /tmp/out-proxy-domains.txt
+    sed -i -e 's/\./\\\./g' -e 's/^/    \.\*/' -e 's/$/\$ \*/' /tmp/out-proxy-domains.txt || (echo -e "[${red}Error:${plain}] Failed to configuration sniproxy." && exit 1)
+    sed -i '/table {/r /tmp/out-proxy-domains.txt' /etc/sniproxy.conf || (echo -e "[${red}Error:${plain}] Failed to configuration sniproxy." && exit 1)
     if [ ! -e /var/log/sniproxy ]; then
         mkdir /var/log/sniproxy
     fi
@@ -267,11 +271,11 @@ Install() {
         echo "Please change to CentOS 6+/Debian 8+/Ubuntu 16+ and try again."
         exit 1
     fi
-	if check_sys packageManager yum; then
-		error_detect_depends "yum -y install net-tools"
-	elif check_sys packageManager apt; then
-		error_detect_depends "apt-get -y install net-tools"
-	fi
+    if check_sys packageManager yum; then
+        error_detect_depends "yum -y install net-tools"
+    elif check_sys packageManager apt; then
+        error_detect_depends "apt-get -y install net-tools"
+    fi
     for aport in 80 443 53; do
         netstat -a -n -p | grep LISTEN | grep -P "\d+\.\d+\.\d+\.\d+:${aport}\s+" > /dev/null && echo -e "[${red}Error${plain}] required port ${aport} already in use\n" && exit 1
     done
@@ -289,7 +293,12 @@ Install() {
         error_detect_depends "apt-get -y install dnsmasq"
     fi
     download /etc/dnsmasq.d/custom_netflix.conf https://github.com/myxuchangbin/dnsmasq_sniproxy_install/raw/master/dnsmasq.conf
-    sed -i "s/PublicIP/`get_ip`/g" /etc/dnsmasq.d/custom_netflix.conf
+    download /tmp/proxy-domains.txt https://github.com/myxuchangbin/dnsmasq_sniproxy_install/raw/master/proxy-domains.txt
+    PublicIP=$(get_ip)
+    for domain in $(cat /tmp/proxy-domains.txt); do
+        printf "address=/${domain}/${PublicIP}\n"\
+        | tee -a /etc/dnsmasq.d/custom_netflix.conf
+    done
     [ "$(grep -x -E "(conf-dir=/etc/dnsmasq.d|conf-dir=/etc/dnsmasq.d,.bak|conf-dir=/etc/dnsmasq.d/,\*.conf|conf-dir=/etc/dnsmasq.d,.rpmnew,.rpmsave,.rpmorig)" /etc/dnsmasq.conf)" ] || echo -e "\nconf-dir=/etc/dnsmasq.d" >> /etc/dnsmasq.conf
     if check_sys packageManager yum; then
         if centosversion 6; then
