@@ -150,6 +150,7 @@ install_cleanup(){
     cd  /tmp/
     rm -rf dnsmasq-2.80 dnsmasq-2.80.tar.gz
     rm -rf sniproxy
+    rm -rf proxy-domains.txt out-proxy-domains.txt
 }
 
 install_dependencies(){
@@ -218,14 +219,17 @@ install_sniproxy(){
             rpmbuild --define "_sourcedir `pwd`" --define "_topdir /tmp/sniproxy/rpmbuild" --define "debug_package %{nil}" -ba redhat/sniproxy.spec
         fi
         error_detect_depends "yum -y install /tmp/sniproxy/rpmbuild/RPMS/x86_64/sniproxy-*.rpm"
-        download /etc/init.d/sniproxy https://github.com/dlundquist/sniproxy/raw/master/redhat/sniproxy.init && chmod +x /etc/init.d/sniproxy
+        download /etc/init.d/sniproxy https://raw.githubusercontent.com/dlundquist/sniproxy/master/redhat/sniproxy.init && chmod +x /etc/init.d/sniproxy
     elif check_sys packageManager apt; then
         ./autogen.sh && dpkg-buildpackage
         error_detect_depends "dpkg -i --no-debsig ../sniproxy_*.deb"
-        download /etc/init.d/sniproxy https://github.com/dlundquist/sniproxy/raw/master/debian/init.d && chmod +x /etc/init.d/sniproxy
-        download /etc/default/sniproxy https://github.com/myxuchangbin/dnsmasq_sniproxy_install/raw/master/sniproxy.default
+        download /etc/init.d/sniproxy https://raw.githubusercontent.com/dlundquist/sniproxy/master/debian/init.d && chmod +x /etc/init.d/sniproxy
+        download /etc/default/sniproxy https://raw.githubusercontent.com/myxuchangbin/dnsmasq_sniproxy_install/master/sniproxy.default
     fi
-    download /etc/sniproxy.conf https://github.com/myxuchangbin/dnsmasq_sniproxy_install/raw/master/sniproxy.conf
+    download /etc/sniproxy.conf https://raw.githubusercontent.com/myxuchangbin/dnsmasq_sniproxy_install/master/sniproxy.conf
+    cp -rf /tmp/proxy-domains.txt /tmp/out-proxy-domains.txt
+    sed -i -e 's/\./\\\./g' -e 's/^/    \.\*/' -e 's/$/\$ \*/' /tmp/out-proxy-domains.txt || (echo -e "[${red}Error:${plain}] Failed to configuration sniproxy." && exit 1)
+    sed -i '/table {/r /tmp/out-proxy-domains.txt' /etc/sniproxy.conf || (echo -e "[${red}Error:${plain}] Failed to configuration sniproxy." && exit 1)
     if [ ! -e /var/log/sniproxy ]; then
         mkdir /var/log/sniproxy
     fi
@@ -267,13 +271,13 @@ Install() {
         echo "Please change to CentOS 6+/Debian 8+/Ubuntu 16+ and try again."
         exit 1
     fi
-	if check_sys packageManager yum; then
-		error_detect_depends "yum -y install net-tools"
-	elif check_sys packageManager apt; then
-		error_detect_depends "apt-get -y install net-tools"
-	fi
+    if check_sys packageManager yum; then
+        error_detect_depends "yum -y install net-tools"
+    elif check_sys packageManager apt; then
+        error_detect_depends "apt-get -y install net-tools"
+    fi
     for aport in 80 443 53; do
-        netstat -a -n -p | grep LISTEN | grep -P "\d+\.\d+\.\d+\.\d+:${aport}" > /dev/null && echo -e "[${red}Error${plain}] required port ${aport} already in use\n" && exit 1
+        netstat -a -n -p | grep LISTEN | grep -P "\d+\.\d+\.\d+\.\d+:${aport}\s+" > /dev/null && echo -e "[${red}Error${plain}] required port ${aport} already in use\n" && exit 1
     done
     disable_selinux
     echo -e "[${green}Info${plain}] Checking the system complete..."
@@ -288,8 +292,13 @@ Install() {
     elif check_sys packageManager apt; then
         error_detect_depends "apt-get -y install dnsmasq"
     fi
-    download /etc/dnsmasq.d/custom_netflix.conf https://github.com/myxuchangbin/dnsmasq_sniproxy_install/raw/master/dnsmasq.conf
-    sed -i "s/PublicIP/`get_ip`/g" /etc/dnsmasq.d/custom_netflix.conf
+    download /etc/dnsmasq.d/custom_netflix.conf https://raw.githubusercontent.com/myxuchangbin/dnsmasq_sniproxy_install/master/dnsmasq.conf
+    download /tmp/proxy-domains.txt https://raw.githubusercontent.com/myxuchangbin/dnsmasq_sniproxy_install/master/proxy-domains.txt
+    PublicIP=$(get_ip)
+    for domain in $(cat /tmp/proxy-domains.txt); do
+        printf "address=/${domain}/${PublicIP}\n"\
+        | tee -a /etc/dnsmasq.d/custom_netflix.conf > /dev/null 2>&1
+    done
     [ "$(grep -x -E "(conf-dir=/etc/dnsmasq.d|conf-dir=/etc/dnsmasq.d,.bak|conf-dir=/etc/dnsmasq.d/,\*.conf|conf-dir=/etc/dnsmasq.d,.rpmnew,.rpmsave,.rpmorig)" /etc/dnsmasq.conf)" ] || echo -e "\nconf-dir=/etc/dnsmasq.d" >> /etc/dnsmasq.conf
     if check_sys packageManager yum; then
         if centosversion 6; then
