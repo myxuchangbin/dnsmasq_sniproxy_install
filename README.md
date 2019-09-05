@@ -9,8 +9,8 @@
 * 特性：脚本默认解锁`Netflix Hulu HBO`[等](https://github.com/myxuchangbin/dnsmasq_sniproxy_install/blob/master/proxy-domains.txt)，如需增删流媒体域名请编辑文件`/etc/dnsmasq.d/custom_netflix.conf`和`/etc/sniproxy.conf`
 
 * 脚本支持系统：CentOS6+, Debian8+, Ubuntu16+
-    * CentOS6/7， Debian8/9, Ubuntu16/18 已测试成功
-	* 理论上不限虚拟化类型，如有问题请反馈！
+    * CentOS6/7， Debian8/9/10, Ubuntu16/18 已测试成功
+	* 理论上不限虚拟化类型，如有问题请反馈
     * 如果脚本最后显示的IP和实际公网IP不相符，请修改一下文件`/etc/sniproxy.conf`中的IP地址
 
 ### 安装方法：
@@ -30,4 +30,4 @@ wget --no-check-certificate -O dnsmasq_sniproxy.sh https://raw.githubusercontent
 
 ---
 
-___本脚本仅用作解锁流媒体使用___
+___本脚本仅限解锁流媒体使用___
