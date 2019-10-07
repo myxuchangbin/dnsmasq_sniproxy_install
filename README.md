@@ -28,6 +28,26 @@ wget --no-check-certificate -O dnsmasq_sniproxy.sh https://raw.githubusercontent
 
 防止滥用，建议不要随意公布IP地址，或使用防火墙做好限制工作。
 
+### 调试排错：
+- 确认sniproxy有效运行
+
+  重启sni命令：systemctl restart sniproxy
+
+  如果sni不在运行，可检查配置/etc/sniproxy.conf，避免ss、nginx或者其他程序监听80,443，可将其配置文件的80更改为801等。
+  443端口必须给sni监听放行，查看：netstat -tlunp|grep 443
+
+- 确认防火墙放行443,53
+
+  调试可直接关闭防火墙 systemctl stop firewalld.service
+
+  阿里云/谷歌云/AWS等外部防火墙放行
+  可通过其他服务器 telnet vpsip 53 以及 telnet vpsip 443 进行测试
+
+- 解析域名
+
+  尝试用其他服务器配置完毕dns后，解析域名：nslookup netflix.com 判断IP是否是NETFLIX代理机器IP
+  如果不存在nslookup命令，CENTOS安装：yum install -y bind-utils DEBIAN安装：apt-get -y install dnsutils
+
 ---
 
 ___本脚本仅限解锁流媒体使用___
