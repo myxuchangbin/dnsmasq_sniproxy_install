@@ -131,7 +131,7 @@ config_firewall(){
         else
             echo -e "[${yellow}Warning${plain}] iptables looks like not running or not installed, please enable port ${ports} manually if necessary."
         fi
-    elif centosversion 7; then
+    elif centosversion 7 || centosversion 8; then
         systemctl status firewalld > /dev/null 2>&1
         if [ $? -eq 0 ]; then
             default_zone=$(firewall-cmd --get-default-zone)
@@ -165,7 +165,7 @@ install_dependencies(){
         echo -e "[${green}Info${plain}] Checking the EPEL repository complete..."
 
         yum_depends=(
-            wget git autoconf automake curl gettext-devel libev-devel pcre-devel perl pkgconfig rpm-build udns-devel
+            wget git autoconf automake curl gettext-devel libev-devel pcre-devel perl pkgconfig rpm-build
         )
         for depend in ${yum_depends[@]}; do
             error_detect_depends "yum -y install ${depend}"
@@ -174,6 +174,13 @@ install_dependencies(){
         if centosversion 6; then
           error_detect_depends "yum -y install centos-release-scl"
           error_detect_depends "yum -y install devtoolset-6-gcc-c++"
+          error_detect_depends "yum -y install udns-devel"
+        fi
+        if centosversion 7; then
+          error_detect_depends "yum -y install udns-devel"
+        fi
+        if centosversion 8; then
+          error_detect_depends "yum -y install udns-devel --enablerepo=epel-testing"
         fi
     elif check_sys packageManager apt; then
         apt_depends=(
@@ -215,7 +222,8 @@ install_sniproxy(){
         ./autogen.sh && ./configure && make dist
         if centosversion 6; then
             scl enable devtoolset-6 'rpmbuild --define "_sourcedir `pwd`" --define "_topdir /tmp/sniproxy/rpmbuild" --define "debug_package %{nil}" -ba redhat/sniproxy.spec'
-        elif centosversion 7; then
+        elif centosversion 7 || centosversion 8; then
+            sed -i "s/\%configure CFLAGS\=\"-I\/usr\/include\/libev\"/\%configure CFLAGS\=\"-fPIC -I\/usr\/include\/libev\"/" redhat/sniproxy.spec
             rpmbuild --define "_sourcedir `pwd`" --define "_topdir /tmp/sniproxy/rpmbuild" --define "debug_package %{nil}" -ba redhat/sniproxy.spec
         fi
         error_detect_depends "yum -y install /tmp/sniproxy/rpmbuild/RPMS/x86_64/sniproxy-*.rpm"
@@ -304,7 +312,7 @@ Install() {
         if centosversion 6; then
             chkconfig dnsmasq on
             service dnsmasq start
-        elif centosversion 7; then
+        elif centosversion 7 || centosversion 8; then
             systemctl enable dnsmasq
             systemctl start dnsmasq
         fi
@@ -335,7 +343,7 @@ Install() {
         if centosversion 6; then
             chkconfig sniproxy on > /dev/null 2>&1
             service sniproxy start || (echo -e "[${red}Error:${plain}] Failed to start sniproxy." && exit 1)
-        elif centosversion 7; then
+        elif centosversion 7 || centosversion 8; then
             systemctl enable sniproxy > /dev/null 2>&1
             systemctl start sniproxy || (echo -e "[${red}Error:${plain}] Failed to start sniproxy." && exit 1)
         fi
@@ -371,7 +379,7 @@ Uninstall() {
                 service sniproxy stop || echo -e "[${red}Error:${plain}] Failed to stop sniproxy."
                 chkconfig dnsmasq off > /dev/null 2>&1
                 service dnsmasq stop || echo -e "[${red}Error:${plain}] Failed to stop dnsmasq."
-            elif centosversion 7; then
+            elif centosversion 7 || centosversion 8; then
                 systemctl disable sniproxy > /dev/null 2>&1
                 systemctl stop sniproxy || echo -e "[${red}Error:${plain}] Failed to stop sniproxy."
                 systemctl disable dnsmasq > /dev/null 2>&1
