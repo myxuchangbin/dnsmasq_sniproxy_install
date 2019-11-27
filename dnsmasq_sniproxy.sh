@@ -165,7 +165,7 @@ install_dependencies(){
         echo -e "[${green}Info${plain}] Checking the EPEL repository complete..."
 
         yum_depends=(
-            wget git autoconf automake curl gettext-devel libev-devel pcre-devel perl pkgconfig rpm-build
+            wget git autoconf automake curl gettext-devel libev-devel pcre-devel perl pkgconfig rpm-build udns-devel
         )
         for depend in ${yum_depends[@]}; do
             error_detect_depends "yum -y install ${depend}"
@@ -174,13 +174,6 @@ install_dependencies(){
         if centosversion 6; then
           error_detect_depends "yum -y install centos-release-scl"
           error_detect_depends "yum -y install devtoolset-6-gcc-c++"
-          error_detect_depends "yum -y install udns-devel"
-        fi
-        if centosversion 7; then
-          error_detect_depends "yum -y install udns-devel"
-        fi
-        if centosversion 8; then
-          error_detect_depends "yum -y install udns-devel --enablerepo=epel-testing"
         fi
     elif check_sys packageManager apt; then
         apt_depends=(
