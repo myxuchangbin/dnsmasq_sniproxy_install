@@ -14,15 +14,14 @@
     * 如果脚本最后显示的IP和实际公网IP不相符，请修改一下文件`/etc/sniproxy.conf`中的IP地址
 
 ### 脚本用法：
-
-  bash dnsmasq_sniproxy.sh [-h] [-i] [-f] [-is] [-fs] [-u] [-us]
-    -h , --help                显示帮助信息
-    -i , --install             编译安装 Dnsmasq + SNI Proxy
-    -f , --fastinstall         快速安装 Dnsmasq + SNI Proxy
-    -is, --installsniproxy     仅安装 SNI Proxy
-    -fs, --fastinstallsniproxy 快速安装 SNI Proxy
-    -u , --uninstall           卸载 Dnsmasq + SNI Proxy
-    -us, --uninstallsniproxy   卸载 SNI Proxy
+    bash dnsmasq_sniproxy.sh [-h] [-i] [-f] [-is] [-fs] [-u] [-us]
+        -h , --help                显示帮助信息
+        -i , --install             编译安装 Dnsmasq + SNI Proxy
+        -f , --fastinstall         快速安装 Dnsmasq + SNI Proxy
+        -is, --installsniproxy     仅安装 SNI Proxy
+        -fs, --fastinstallsniproxy 快速安装 SNI Proxy
+        -u , --uninstall           卸载 Dnsmasq + SNI Proxy
+        -us, --uninstallsniproxy   卸载 SNI Proxy
 
 ### 快速安装（推荐）：
 ``` Bash
