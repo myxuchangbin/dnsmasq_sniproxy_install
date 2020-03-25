@@ -79,3 +79,6 @@ abema.tv
 hulu.jp
 optus.com.au
 optusnet.com.au
+gamer.com.tw
+bahamut.com.tw
+hinet.net
