@@ -10,18 +10,21 @@
 
 * 脚本支持系统：CentOS6+, Debian8+, Ubuntu16+
     * CentOS6/7/8， Debian8/9/10, Ubuntu16/18 已测试成功
-	* 理论上不限虚拟化类型，如有问题请反馈
+    * 理论上不限虚拟化类型，如有问题请反馈
     * 如果脚本最后显示的IP和实际公网IP不相符，请修改一下文件`/etc/sniproxy.conf`中的IP地址
 
 ### 脚本用法：
-    bash dnsmasq_sniproxy.sh [-h] [-i] [-f] [-is] [-fs] [-u] [-us]
-        -h , --help                显示帮助信息
-        -i , --install             编译安装 Dnsmasq + SNI Proxy
-        -f , --fastinstall         快速安装 Dnsmasq + SNI Proxy
-        -is, --installsniproxy     仅安装 SNI Proxy
-        -fs, --fastinstallsniproxy 快速安装 SNI Proxy
-        -u , --uninstall           卸载 Dnsmasq + SNI Proxy
-        -us, --uninstallsniproxy   卸载 SNI Proxy
+
+  bash dnsmasq_sniproxy.sh [-h] [-i] [-f] [-id] [-is] [-fs] [-u] [-ud] [-us]
+    -h , --help                显示帮助信息
+    -i , --install             安装 Dnsmasq + SNI Proxy
+    -f , --fastinstall         快速安装 Dnsmasq + SNI Proxy
+    -id, --installdnsmasq      仅安装 Dnsmasq
+    -is, --installsniproxy     仅安装 SNI Proxy
+    -fs, --fastinstallsniproxy 快速安装 SNI Proxy
+    -u , --uninstall           卸载 Dnsmasq + SNI Proxy
+    -ud, --undnsmasq           卸载 Dnsmasq
+    -us, --unsniproxy          卸载 SNI Proxy
 
 ### 快速安装（推荐）：
 ``` Bash
@@ -46,16 +49,15 @@ wget --no-check-certificate -O dnsmasq_sniproxy.sh https://raw.githubusercontent
 ### 调试排错：
 - 确认sniproxy有效运行
 
-  重启sni命令：systemctl restart sniproxy
+  查看sni状态：systemctl status sniproxy
 
-  如果sni不在运行，可检查配置/etc/sniproxy.conf，避免ss、nginx或者其他程序监听80,443，可将其配置文件的80更改为801等。
-  443端口必须给sniproxy监听放行，查看：netstat -tlunp|grep 443
+  如果sni不在运行，检查一下是否有其他服务占用80,443端口，以防端口冲突，可将其其他服务更改一下监听端口，查看：netstat -tlunp|grep 443
 
 - 确认防火墙放行80,443,53
 
   调试可直接关闭防火墙 systemctl stop firewalld.service
 
-  阿里云/谷歌云/AWS等外部防火墙放行
+  阿里云/谷歌云/AWS等运营商安全组端口同样需要放行
   可通过其他服务器 telnet vpsip 53 以及 telnet vpsip 443 进行测试
 
 - 解析域名

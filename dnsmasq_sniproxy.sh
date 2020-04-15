@@ -91,6 +91,22 @@ get_ip(){
     echo ${IP}
 }
 
+check_ip(){
+    local checkip=$1   
+    local valid_check=$(echo $checkip|awk -F. '$1<=255&&$2<=255&&$3<=255&&$4<=255{print "yes"}')   
+    if echo $checkip|grep -E "^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$" >/dev/null; then   
+        if [ ${valid_check:-no} == "yes" ]; then   
+            return 0   
+        else   
+            echo -e "[${red}Error${plain}] IP $checkip not available!"   
+            return 1   
+        fi   
+    else   
+        echo -e "[${red}Error${plain}] IP format error!"   
+        return 1   
+    fi
+}
+
 download(){
     local filename=${1}
     echo -e "[${green}Info${plain}] ${filename} download configuration now..."
@@ -113,11 +129,6 @@ error_detect_depends(){
 }
 
 config_firewall(){
-    if [[ ${onlysniproxy} = "0" ]]; then
-        ports="53 80 443"
-    else
-        ports="80 443"
-    fi
     if centosversion 6; then
         /etc/init.d/iptables status > /dev/null 2>&1
         if [ $? -eq 0 ]; then
@@ -125,7 +136,9 @@ config_firewall(){
                 iptables -L -n | grep -i ${port} > /dev/null 2>&1
                 if [ $? -ne 0 ]; then
                     iptables -I INPUT -m state --state NEW -m tcp -p tcp --dport ${port} -j ACCEPT
-                    iptables -I INPUT -m state --state NEW -m udp -p udp --dport ${port} -j ACCEPT
+                    if [ ${port} == "53" ]; then
+                        iptables -I INPUT -m state --state NEW -m udp -p udp --dport ${port} -j ACCEPT
+                    fi
                 else
                     echo -e "[${green}Info${plain}] port ${green}${port}${plain} already be enabled."
                 fi
@@ -139,27 +152,21 @@ config_firewall(){
         systemctl status firewalld > /dev/null 2>&1
         if [ $? -eq 0 ]; then
             default_zone=$(firewall-cmd --get-default-zone)
-            if [[ ${onlysniproxy} = "0" ]]; then
-                firewall-cmd --permanent --zone=${default_zone} --add-port=53/tcp
-                firewall-cmd --permanent --zone=${default_zone} --add-port=53/udp
-            fi
-            firewall-cmd --permanent --zone=${default_zone} --add-port=80/tcp
-            firewall-cmd --permanent --zone=${default_zone} --add-port=443/tcp
-            firewall-cmd --reload
+            for port in ${ports}; do
+                firewall-cmd --permanent --zone=${default_zone} --add-port=${port}/tcp
+                if [ ${port} == "53" ]; then
+                    firewall-cmd --permanent --zone=${default_zone} --add-port=${port}/udp
+                fi
+                firewall-cmd --reload
+            done
         else
             echo -e "[${yellow}Warning${plain}] firewalld looks like not running or not installed, please enable port ${ports} manually if necessary."
         fi
     fi
 }
 
-install_cleanup(){
-    cd  /tmp/
-    rm -rf dnsmasq-2.80 dnsmasq-2.80.tar.gz
-    rm -rf sniproxy*
-    rm -rf proxy-domains.txt sniproxy-domains.txt
-}
-
 install_dependencies(){
+    echo "安装依赖软件..."
     if check_sys packageManager yum; then
         echo -e "[${green}Info${plain}] Checking the EPEL repository..."
         if [ ! -f /etc/yum.repos.d/epel.repo ]; then
@@ -215,24 +222,74 @@ install_dependencies(){
     fi
 }
 
-upgrade_dnsmasq(){
-    cd /tmp/
-    if [ -e dnsmasq-2.80 ]; then
-        rm -rf dnsmasq-2.80
+install_dnsmasq(){
+    netstat -a -n -p | grep LISTEN | grep -P "\d+\.\d+\.\d+\.\d+:53\s+" > /dev/null && echo -e "[${red}Error${plain}] required port 53 already in use\n" && exit 1
+    echo "安装Dnsmasq..."
+    if check_sys packageManager yum; then
+        error_detect_depends "yum -y install dnsmasq"
+        if centosversion 6; then
+            error_detect_depends "yum -y install make"
+            error_detect_depends "yum -y install gcc-c++"
+            cd /tmp/
+            if [ -e dnsmasq-2.80 ]; then
+                rm -rf dnsmasq-2.80
+            fi
+            download dnsmasq-2.80.tar.gz http://www.thekelleys.org.uk/dnsmasq/dnsmasq-2.80.tar.gz
+            tar -zxf dnsmasq-2.80.tar.gz
+            cd dnsmasq-2.80
+            make
+            if [ $? -ne 0 ]; then
+                echo -e "[${red}Error${plain}] dnsmasq upgrade failed."
+                rm -rf /tmp/dnsmasq-2.80 /tmp/dnsmasq-2.80.tar.gz
+                exit 1
+            fi
+            yes|cp -f /tmp/dnsmasq-2.80/src/dnsmasq /usr/sbin/dnsmasq && chmod 755 /usr/sbin/dnsmasq
+        fi
+    elif check_sys packageManager apt; then
+        error_detect_depends "apt-get -y install dnsmasq"
     fi
-    download dnsmasq-2.80.tar.gz http://www.thekelleys.org.uk/dnsmasq/dnsmasq-2.80.tar.gz
-    tar -zxf dnsmasq-2.80.tar.gz
-    cd dnsmasq-2.80
-    make
-    if [ $? -ne 0 ]; then
-        echo -e "[${red}Error${plain}] dnsmasq upgrade failed."
-        install_cleanup
-        exit 1
+    [ ! -f /usr/sbin/dnsmasq ] && echo -e "[${red}Error${plain}] 安装dnsmasq出现问题，请检查." && exit 1
+    download /etc/dnsmasq.d/custom_netflix.conf https://raw.githubusercontent.com/myxuchangbin/dnsmasq_sniproxy_install/master/dnsmasq.conf
+    download /tmp/proxy-domains.txt https://raw.githubusercontent.com/myxuchangbin/dnsmasq_sniproxy_install/master/proxy-domains.txt
+    for domain in $(cat /tmp/proxy-domains.txt); do
+        printf "address=/${domain}/${publicip}\n"\
+        | tee -a /etc/dnsmasq.d/custom_netflix.conf > /dev/null 2>&1
+    done
+    [ "$(grep -x -E "(conf-dir=/etc/dnsmasq.d|conf-dir=/etc/dnsmasq.d,.bak|conf-dir=/etc/dnsmasq.d/,\*.conf|conf-dir=/etc/dnsmasq.d,.rpmnew,.rpmsave,.rpmorig)" /etc/dnsmasq.conf)" ] || echo -e "\nconf-dir=/etc/dnsmasq.d" >> /etc/dnsmasq.conf
+    echo "启动 Dnsmasq 服务..."
+    if check_sys packageManager yum; then
+        if centosversion 6; then
+            chkconfig dnsmasq on
+            service dnsmasq start
+        elif centosversion 7 || centosversion 8; then
+            systemctl enable dnsmasq
+            systemctl start dnsmasq
+        fi
+    elif check_sys packageManager apt; then
+        systemctl enable dnsmasq
+        systemctl restart dnsmasq
     fi
-    yes|cp -f /tmp/dnsmasq-2.80/src/dnsmasq /usr/sbin/dnsmasq && chmod 755 /usr/sbin/dnsmasq
+    rm -rf /tmp/dnsmasq-2.80 /tmp/dnsmasq-2.80.tar.gz /tmp/proxy-domains.txt
+    echo -e "[${green}Info${plain}] dnsmasq install complete..."
 }
 
 install_sniproxy(){
+    for aport in 80 443; do
+        netstat -a -n -p | grep LISTEN | grep -P "\d+\.\d+\.\d+\.\d+:${aport}\s+" > /dev/null && echo -e "[${red}Error${plain}] required port ${aport} already in use\n" && exit 1
+    done
+    install_dependencies
+    echo "安装SNI Proxy..."
+    if check_sys packageManager yum; then
+        rpm -qa | grep sniproxy >/dev/null 2>&1
+        if [ $? -eq 0 ]; then
+            rpm -e sniproxy
+        fi
+    elif check_sys packageManager apt; then
+        dpkg -s sniproxy >/dev/null 2>&1
+        if [ $? -eq 0 ]; then
+            dpkg -r sniproxy
+        fi
+    fi
     bit=`uname -m`
     cd /tmp
     if [[ ${fastmode} = "0" ]]; then
@@ -247,6 +304,7 @@ install_sniproxy(){
             if [[ ${bit} = "x86_64" ]]; then
                 download /tmp/sniproxy-0.6.0.el7.x86_64.rpm https://github.com/myxuchangbin/dnsmasq_sniproxy_install/raw/master/sniproxy/sniproxy-0.6.0.el7.x86_64.rpm
                 error_detect_depends "yum -y install /tmp/sniproxy-0.6.0.el7.x86_64.rpm"
+                rm -rf /tmp/sniproxy-0.6.0.el7.x86_64.rpm
             else
                 echo -e "${red}暂不支持${bit}内核，请使用编译模式安装！${plain}" && exit 1
             fi
@@ -266,19 +324,24 @@ install_sniproxy(){
             if [[ ${bit} = "x86_64" ]]; then
                 download /tmp/sniproxy_0.6.0_amd64.deb https://github.com/myxuchangbin/dnsmasq_sniproxy_install/raw/master/sniproxy/sniproxy_0.6.0_amd64.deb
                 error_detect_depends "dpkg -i --no-debsig /tmp/sniproxy_0.6.0_amd64.deb"
+                rm -rf /tmp/sniproxy_0.6.0_amd64.deb
             elif [[ ${bit} = "i386" ]]; then
                 download /tmp/sniproxy_0.6.0_i386.deb https://github.com/myxuchangbin/dnsmasq_sniproxy_install/raw/master/sniproxy/sniproxy_0.6.0_i386.deb
                 error_detect_depends "dpkg -i --no-debsig /tmp/sniproxy_0.6.0_i386.deb"
+                rm -rf /tmp/sniproxy_0.6.0_i386.deb
             else
                 echo -e "${red}暂不支持${bit}内核，请使用编译模式安装！${plain}" && exit 1
             fi
         else
             ./autogen.sh && dpkg-buildpackage
             error_detect_depends "dpkg -i --no-debsig ../sniproxy_*.deb"
+            rm -rf /tmp/sniproxy*.deb
         fi  
         download /etc/init.d/sniproxy https://raw.githubusercontent.com/dlundquist/sniproxy/master/debian/init.d && chmod +x /etc/init.d/sniproxy
         download /etc/default/sniproxy https://raw.githubusercontent.com/myxuchangbin/dnsmasq_sniproxy_install/master/sniproxy.default
     fi
+    [ ! -f /usr/sbin/sniproxy ] && echo -e "[${red}Error${plain}] 安装Sniproxy出现问题，请检查." && exit 1
+    [ ! -f /etc/init.d/sniproxy ] && echo -e "[${red}Error${plain}] 下载Sniproxy启动文件出现问题，请检查." && exit 1
     download /etc/sniproxy.conf https://raw.githubusercontent.com/myxuchangbin/dnsmasq_sniproxy_install/master/sniproxy.conf
     download /tmp/sniproxy-domains.txt https://raw.githubusercontent.com/myxuchangbin/dnsmasq_sniproxy_install/master/proxy-domains.txt
     sed -i -e 's/\./\\\./g' -e 's/^/    \.\*/' -e 's/$/\$ \*/' /tmp/sniproxy-domains.txt || (echo -e "[${red}Error:${plain}] Failed to configuration sniproxy." && exit 1)
@@ -286,116 +349,6 @@ install_sniproxy(){
     if [ ! -e /var/log/sniproxy ]; then
         mkdir /var/log/sniproxy
     fi
-}
-
-install_check(){
-    if check_sys packageManager yum || check_sys packageManager apt; then
-        if centosversion 5; then
-            return 1
-        fi
-        return 0
-    else
-        return 1
-    fi
-}
-
-Hello() {
-    echo ""
-    echo -e "${yellow}Dnsmasq + SNI Proxy自助安装脚本${plain}"
-    echo -e "${yellow}支持系统:  CentOS 6+, Debian8+, Ubuntu16+${plain}"
-    echo ""
-}
-
-Help() {
-    Hello
-    echo "使用方法：bash $0 [-h] [-i] [-f] [-is] [-fs] [-u] [-us]"
-    echo ""
-    echo "  -h , --help                显示帮助信息"
-    echo "  -i , --install             编译安装 Dnsmasq + SNI Proxy"
-    echo "  -f , --fastinstall         快速安装 Dnsmasq + SNI Proxy"
-    echo "  -is, --installsniproxy     仅安装 SNI Proxy"
-    echo "  -fs, --fastinstallsniproxy 快速安装 SNI Proxy"
-    echo "  -u , --uninstall           卸载 Dnsmasq + SNI Proxy"
-    echo "  -us, --uninstallsniproxy   卸载 SNI Proxy"
-    echo ""
-}
-
-Install() {
-    Hello
-    echo "检测您的系統..."
-    if ! install_check; then
-        echo -e "[${red}Error${plain}] Your OS is not supported to run it!"
-        echo "Please change to CentOS 6+/Debian 8+/Ubuntu 16+ and try again."
-        exit 1
-    fi
-    if check_sys packageManager yum; then
-        error_detect_depends "yum -y install net-tools"
-    elif check_sys packageManager apt; then
-        error_detect_depends "apt-get -y install net-tools"
-    fi
-    if [[ ${onlysniproxy} = "0" ]]; then
-        for aport in 80 443 53; do
-            netstat -a -n -p | grep LISTEN | grep -P "\d+\.\d+\.\d+\.\d+:${aport}\s+" > /dev/null && echo -e "[${red}Error${plain}] required port ${aport} already in use\n" && exit 1
-        done
-    else
-        for aport in 80 443; do
-            netstat -a -n -p | grep LISTEN | grep -P "\d+\.\d+\.\d+\.\d+:${aport}\s+" > /dev/null && echo -e "[${red}Error${plain}] required port ${aport} already in use\n" && exit 1
-        done
-    fi
-    disable_selinux
-    echo -e "[${green}Info${plain}] Checking the system complete..."
-    echo "安装依赖软件..."
-    install_dependencies
-    if [[ ${onlysniproxy} = "0" ]]; then
-        echo "安装Dnsmasq..."
-        if check_sys packageManager yum; then
-            error_detect_depends "yum -y install dnsmasq"
-            if centosversion 6; then
-                upgrade_dnsmasq
-            fi
-        elif check_sys packageManager apt; then
-            error_detect_depends "apt-get -y install dnsmasq"
-        fi
-        download /etc/dnsmasq.d/custom_netflix.conf https://raw.githubusercontent.com/myxuchangbin/dnsmasq_sniproxy_install/master/dnsmasq.conf
-        download /tmp/proxy-domains.txt https://raw.githubusercontent.com/myxuchangbin/dnsmasq_sniproxy_install/master/proxy-domains.txt
-        PublicIP=$(get_ip)
-        for domain in $(cat /tmp/proxy-domains.txt); do
-            printf "address=/${domain}/${PublicIP}\n"\
-            | tee -a /etc/dnsmasq.d/custom_netflix.conf > /dev/null 2>&1
-        done
-        [ "$(grep -x -E "(conf-dir=/etc/dnsmasq.d|conf-dir=/etc/dnsmasq.d,.bak|conf-dir=/etc/dnsmasq.d/,\*.conf|conf-dir=/etc/dnsmasq.d,.rpmnew,.rpmsave,.rpmorig)" /etc/dnsmasq.conf)" ] || echo -e "\nconf-dir=/etc/dnsmasq.d" >> /etc/dnsmasq.conf
-        if check_sys packageManager yum; then
-            if centosversion 6; then
-                chkconfig dnsmasq on
-                service dnsmasq start
-            elif centosversion 7 || centosversion 8; then
-                systemctl enable dnsmasq
-                systemctl start dnsmasq
-            fi
-        elif check_sys packageManager apt; then
-            systemctl enable dnsmasq
-            systemctl restart dnsmasq
-        fi
-        echo -e "[${green}Info${plain}] dnsmasq startup complete..."
-    fi
-    echo "安装SNI Proxy..."
-    if check_sys packageManager yum; then
-        rpm -qa | grep sniproxy >/dev/null 2>&1
-        if [ $? -eq 0 ]; then
-            rpm -e sniproxy
-        fi
-    elif check_sys packageManager apt; then
-        dpkg -s sniproxy >/dev/null 2>&1
-        if [ $? -eq 0 ]; then
-            dpkg -r sniproxy
-        fi
-    fi
-    install_sniproxy
-    echo "检查安装情况..."
-    [ ! -f /usr/sbin/sniproxy ] && echo -e "[${red}Error${plain}] 安装Sniproxy出现问题，请检查." && exit 1
-    echo -e "[${green}Info${plain}] Checking the sniproxy services complete..."
-    [ ! -f /etc/init.d/sniproxy ] && echo -e "[${red}Error${plain}] 下载Sniproxy启动文件出现问题，请检查." && exit 1
-    echo -e "[${green}Info${plain}] Checking the sniproxy startup file complete..."
     echo "启动 SNI Proxy 服务..."
     if check_sys packageManager yum; then
         if centosversion 6; then
@@ -410,94 +363,190 @@ Install() {
         systemctl enable sniproxy > /dev/null 2>&1
         systemctl restart sniproxy || (echo -e "[${red}Error:${plain}] Failed to start sniproxy." && exit 1)
     fi
-    echo -e "[${green}Info${plain}] sniproxy startup complete..."
-    if check_sys packageManager yum; then
-        echo "检查防火墙端口..."
-        config_firewall
-        echo -e "[${green}Info${plain}] Firewall port detection complete..."
-    fi
-    install_cleanup
-    if [[ ${onlysniproxy} = "0" ]]; then
-        echo ""
-        echo -e "${yellow}Dnsmasq + SNI Proxy 已完成安装！${plain}"
-        echo ""
-        echo -e "${yellow}将您的DNS更改为 $(get_ip) 即可以观看Netflix节目了。${plain}"
-        echo ""
-    else
-        echo ""
-        echo -e "${yellow}SNI Proxy 已完成安装！${plain}"
-        echo ""
-        echo -e "${yellow}将Netflix的相关域名解析到 $(get_ip) 即可以观看Netflix节目了。${plain}"
-        echo ""
+    rm -rf /tmp/sniproxy/
+    rm -rf /tmp/sniproxy-domains.txt
+    echo -e "[${green}Info${plain}] sniproxy install complete..."
+}
 
+install_check(){
+    if check_sys packageManager yum || check_sys packageManager apt; then
+        if centosversion 5; then
+            return 1
+        fi
+        return 0
+    else
+        return 1
     fi
 }
 
-Uninstall() {
-    Hello
-    if [[ ${onlysniproxy} = "0" ]]; then
-        echo -e "${yellow}确定卸载Dnsmasq和SNI Proxy?${plain}"
-    else
-        echo -e "${yellow}确定卸载SNI Proxy?${plain}"
+ready_install(){
+    echo "检测您的系統..."
+    if ! install_check; then
+        echo -e "[${red}Error${plain}] Your OS is not supported to run it!"
+        echo -e "Please change to CentOS 6+/Debian 8+/Ubuntu 16+ and try again."
+        exit 1
     fi
-    echo -e "${yellow}[Enter] 确定  [N] 取消${plain}"
-    read selection
-    if [[ -z $selection ]]; then
-        echo -e "[${green}Info${plain}] Stoping services."
-        if check_sys packageManager yum; then
-            if centosversion 6; then
-                chkconfig sniproxy off > /dev/null 2>&1
-                service sniproxy stop || echo -e "[${red}Error:${plain}] Failed to stop sniproxy."
-                if [[ ${onlysniproxy} = "0" ]]; then
-                    chkconfig dnsmasq off > /dev/null 2>&1
-                    service dnsmasq stop || echo -e "[${red}Error:${plain}] Failed to stop dnsmasq."
-                fi
-            elif centosversion 7 || centosversion 8; then
-                systemctl disable sniproxy > /dev/null 2>&1
-                systemctl stop sniproxy || echo -e "[${red}Error:${plain}] Failed to stop sniproxy."
-                if [[ ${onlysniproxy} = "0" ]]; then
-                    systemctl disable dnsmasq > /dev/null 2>&1
-                    systemctl stop dnsmasq || echo -e "[${red}Error:${plain}] Failed to stop dnsmasq."
-                fi
-          fi
-        elif check_sys packageManager apt; then
+    if check_sys packageManager yum; then
+        error_detect_depends "yum -y install net-tools"
+    elif check_sys packageManager apt; then
+        error_detect_depends "apt-get -y install net-tools"
+    fi
+    disable_selinux
+    if check_sys packageManager yum; then
+        config_firewall
+    fi
+    echo -e "[${green}Info${plain}] Checking the system complete..."
+}
+
+hello(){
+    echo ""
+    echo -e "${yellow}Dnsmasq + SNI Proxy自助安装脚本${plain}"
+    echo -e "${yellow}支持系统:  CentOS 6+, Debian8+, Ubuntu16+${plain}"
+    echo ""
+}
+
+help(){
+    hello
+    echo "使用方法：bash $0 [-h] [-i] [-f] [-id] [-is] [-fs] [-u] [-ud] [-us]"
+    echo ""
+    echo "  -h , --help                显示帮助信息"
+    echo "  -i , --install             安装 Dnsmasq + SNI Proxy"
+    echo "  -f , --fastinstall         快速安装 Dnsmasq + SNI Proxy"
+    echo "  -id, --installdnsmasq      仅安装 Dnsmasq"
+    echo "  -is, --installsniproxy     仅安装 SNI Proxy"
+    echo "  -fs, --fastinstallsniproxy 快速安装 SNI Proxy"
+    echo "  -u , --uninstall           卸载 Dnsmasq + SNI Proxy"
+    echo "  -ud, --undnsmasq           卸载 Dnsmasq"
+    echo "  -us, --unsniproxy          卸载 SNI Proxy"
+    echo ""
+}
+
+install_all(){
+    ports="53 80 443"
+    publicip=$(get_ip)
+    hello
+    ready_install
+    install_dnsmasq
+    install_sniproxy
+    echo ""
+    echo -e "${yellow}Dnsmasq + SNI Proxy 已完成安装！${plain}"
+    echo ""
+    echo -e "${yellow}将您的DNS更改为 $(get_ip) 即可以观看Netflix节目了。${plain}"
+    echo ""
+}
+
+only_dnsmasq(){
+    ports="53"
+    hello
+    ready_install
+    inputipcount=1
+    echo -e "请输入SNIProxy服务器的IP地址"
+    read -e -p "(默认为本机公网IP): " inputip
+    while true; do
+        if [ "${inputipcount}" == 3 ]; then
+            echo -e "[${red}Error:${plain}] IP输入错误次数过多，请重新执行脚本。"
+            exit 1
+        fi
+        if [ -z ${inputip} ]; then
+            publicip=$(get_ip)
+            break
+        else
+            check_ip ${inputip}
+            if [ $? -eq 0 ]; then
+                publicip=${inputip}
+                break
+            else
+                echo -e "请重新输入SNIProxy服务器的IP地址"
+                read -e -p "(默认为本机公网IP): " inputip
+            fi
+        fi
+        inputipcount=`expr ${inputipcount} + 1`
+    done
+    install_dnsmasq
+    echo ""
+    echo -e "${yellow}Dnsmasq 已完成安装！${plain}"
+    echo ""
+    echo -e "${yellow}将您的DNS更改为 $(get_ip) 即可以观看Netflix节目了。${plain}"
+    echo ""
+}
+
+only_sniproxy(){
+    ports="80 443"
+    hello
+    ready_install
+    install_sniproxy
+    echo ""
+    echo -e "${yellow}SNI Proxy 已完成安装！${plain}"
+    echo ""
+    echo -e "${yellow}将Netflix的相关域名解析到 $(get_ip) 即可以观看Netflix节目了。${plain}"
+    echo ""
+}
+
+undnsmasq(){
+    echo -e "[${green}Info${plain}] Stoping dnsmasq services."
+    if check_sys packageManager yum; then
+        if centosversion 6; then
+            chkconfig dnsmasq off > /dev/null 2>&1
+            service dnsmasq stop || echo -e "[${red}Error:${plain}] Failed to stop dnsmasq."
+        elif centosversion 7 || centosversion 8; then
+            systemctl disable dnsmasq > /dev/null 2>&1
+            systemctl stop dnsmasq || echo -e "[${red}Error:${plain}] Failed to stop dnsmasq."
+        fi
+    elif check_sys packageManager apt; then
+        systemctl disable dnsmasq > /dev/null 2>&1
+        systemctl stop dnsmasq || echo -e "[${red}Error:${plain}] Failed to stop dnsmasq."
+    fi
+    echo -e "[${green}Info${plain}] Starting to uninstall dnsmasq services."
+    if check_sys packageManager yum; then
+        yum remove dnsmasq -y > /dev/null 2>&1
+        if [ $? -ne 0 ]; then
+            echo -e "[${red}Error${plain}] Failed to uninstall ${red}dnsmasq${plain}"
+        fi
+    elif check_sys packageManager apt; then
+        apt-get remove dnsmasq -y > /dev/null 2>&1
+        if [ $? -ne 0 ]; then
+            echo -e "[${red}Error${plain}] Failed to uninstall ${red}dnsmasq${plain}"
+        fi
+    fi
+    rm -rf /etc/dnsmasq.d/custom_netflix.conf
+    echo -e "[${green}Info${plain}] services uninstall dnsmasq complete..."
+}
+
+unsniproxy(){
+    echo -e "[${green}Info${plain}] Stoping sniproxy services."
+    if check_sys packageManager yum; then
+        if centosversion 6; then
+            chkconfig sniproxy off > /dev/null 2>&1
+            service sniproxy stop || echo -e "[${red}Error:${plain}] Failed to stop sniproxy."
+        elif centosversion 7 || centosversion 8; then
             systemctl disable sniproxy > /dev/null 2>&1
             systemctl stop sniproxy || echo -e "[${red}Error:${plain}] Failed to stop sniproxy."
-            if [[ ${onlysniproxy} = "0" ]]; then
-                systemctl disable dnsmasq > /dev/null 2>&1
-                systemctl stop dnsmasq || echo -e "[${red}Error:${plain}] Failed to stop dnsmasq."
-            fi
         fi
-        echo -e "[${green}Info${plain}] Starting to uninstall services."
-        if check_sys packageManager yum; then
-            yum remove sniproxy -y > /dev/null 2>&1
-            if [ $? -ne 0 ]; then
-                echo -e "[${red}Error${plain}] Failed to uninstall ${red}sniproxy${plain}"
-            fi
-            if [[ ${onlysniproxy} = "0" ]]; then
-                yum remove dnsmasq -y > /dev/null 2>&1
-                if [ $? -ne 0 ]; then
-                    echo -e "[${red}Error${plain}] Failed to uninstall ${red}dnsmasq${plain}"
-                fi
-            fi
-        elif check_sys packageManager apt; then
-            apt-get remove sniproxy -y > /dev/null 2>&1
-            if [ $? -ne 0 ]; then
-                echo -e "[${red}Error${plain}] Failed to uninstall ${red}sniproxy${plain}"
-            fi
-            if [[ ${onlysniproxy} = "0" ]]; then
-                apt-get remove dnsmasq -y > /dev/null 2>&1
-                if [ $? -ne 0 ]; then
-                    echo -e "[${red}Error${plain}] Failed to uninstall ${red}dnsmasq${plain}"
-                fi
-            fi
+    elif check_sys packageManager apt; then
+        systemctl disable sniproxy > /dev/null 2>&1
+        systemctl stop sniproxy || echo -e "[${red}Error:${plain}] Failed to stop sniproxy."
+    fi
+    echo -e "[${green}Info${plain}] Starting to uninstall sniproxy services."
+    if check_sys packageManager yum; then
+        yum remove sniproxy -y > /dev/null 2>&1
+        if [ $? -ne 0 ]; then
+            echo -e "[${red}Error${plain}] Failed to uninstall ${red}sniproxy${plain}"
         fi
-        rm -rf /etc/sniproxy.conf || echo -e "[${red}Error${plain}] Failed to delete sniproxy configuration file"
-        if [[ ${onlysniproxy} = "0" ]]; then
-            rm -rf /etc/dnsmasq.d/custom_netflix.conf || echo -e "[${red}Error${plain}] Failed to delete dnsmasq configuration file"
+    elif check_sys packageManager apt; then
+        apt-get remove sniproxy -y > /dev/null 2>&1
+        if [ $? -ne 0 ]; then
+            echo -e "[${red}Error${plain}] Failed to uninstall ${red}sniproxy${plain}"
         fi
-        echo -e "[${green}Info${plain}] services uninstall complete..."
-    else
+    fi
+    rm -rf /etc/sniproxy.conf
+    echo -e "[${green}Info${plain}] services uninstall sniproxy complete..."
+}
+
+confirm(){
+    echo -e "${yellow}是否继续执行?(n:取消/y:继续)${plain}"
+    read -e -p "(默认:取消): " selection
+    [ -z "${selection}" ] && selection="n"
+    if [ ${selection} != "y" ]; then
         exit 0
     fi
 }
@@ -507,38 +556,47 @@ if [[ $# = 1 ]];then
     case $key in
         -i|--install)
         fastmode=0
-        onlysniproxy=0
-        Install
+        install_all
         ;;
         -f|--fastinstall)
         fastmode=1
-        onlysniproxy=0
-        Install
+        install_all
+        ;;
+        -id|--installdnsmasq)
+        fastmode=0
+        only_dnsmasq
         ;;
         -is|--installsniproxy)
         fastmode=0
-        onlysniproxy=1
-        Install
+        only_sniproxy
         ;;
         -fs|--fastinstallsniproxy)
         fastmode=1
-        onlysniproxy=1
-        Install
+        only_sniproxy
         ;;
         -u|--uninstall)
-        fastmode=0
-        onlysniproxy=0
-        Uninstall
+        hello
+        echo -e "${yellow}正在执行卸载Dnsmasq和SNI Proxy.${plain}"
+        confirm
+        undnsmasq
+        unsniproxy
         ;;
-        -us|--uninstallsniproxy)
-        fastmode=0
-        onlysniproxy=1
-        Uninstall
+        -ud|--undnsmasq)
+        hello
+        echo -e "${yellow}正在执行卸载Dnsmasq.${plain}"
+        confirm
+        undnsmasq
+        ;;
+        -us|--unsniproxy)
+        hello
+        echo -e "${yellow}正在执行卸载SNI Proxy.${plain}"
+        confirm
+        unsniproxy
         ;;
         -h|--help|*)
-        Help
+        help
         ;;
     esac
 else
-    Help
+    help
 fi
