@@ -15,16 +15,16 @@
 
 ### 脚本用法：
 
-  bash dnsmasq_sniproxy.sh [-h] [-i] [-f] [-id] [-is] [-fs] [-u] [-ud] [-us]
-    -h , --help                显示帮助信息
-    -i , --install             安装 Dnsmasq + SNI Proxy
-    -f , --fastinstall         快速安装 Dnsmasq + SNI Proxy
-    -id, --installdnsmasq      仅安装 Dnsmasq
-    -is, --installsniproxy     仅安装 SNI Proxy
-    -fs, --fastinstallsniproxy 快速安装 SNI Proxy
-    -u , --uninstall           卸载 Dnsmasq + SNI Proxy
-    -ud, --undnsmasq           卸载 Dnsmasq
-    -us, --unsniproxy          卸载 SNI Proxy
+    bash dnsmasq_sniproxy.sh [-h] [-i] [-f] [-id] [-is] [-fs] [-u] [-ud] [-us]
+      -h , --help                显示帮助信息
+      -i , --install             安装 Dnsmasq + SNI Proxy
+      -f , --fastinstall         快速安装 Dnsmasq + SNI Proxy
+      -id, --installdnsmasq      仅安装 Dnsmasq
+      -is, --installsniproxy     仅安装 SNI Proxy
+      -fs, --fastinstallsniproxy 快速安装 SNI Proxy
+      -u , --uninstall           卸载 Dnsmasq + SNI Proxy
+      -ud, --undnsmasq           卸载 Dnsmasq
+      -us, --unsniproxy          卸载 SNI Proxy
 
 ### 快速安装（推荐）：
 ``` Bash
@@ -51,7 +51,7 @@ wget --no-check-certificate -O dnsmasq_sniproxy.sh https://raw.githubusercontent
 
   查看sni状态：systemctl status sniproxy
 
-  如果sni不在运行，检查一下是否有其他服务占用80,443端口，以防端口冲突，可将其其他服务更改一下监听端口，查看：netstat -tlunp|grep 443
+  如果sni不在运行，检查一下是否有其他服务占用80,443端口，以防端口冲突，先将其他服务更改一下监听端口，查看端口监听：netstat -tlunp|grep 443
 
 - 确认防火墙放行80,443,53
 
