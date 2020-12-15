@@ -269,6 +269,7 @@ install_dnsmasq(){
         systemctl enable dnsmasq
         systemctl restart dnsmasq
     fi
+    cd /tmp
     rm -rf /tmp/dnsmasq-2.80 /tmp/dnsmasq-2.80.tar.gz /tmp/proxy-domains.txt
     echo -e "[${green}Info${plain}] dnsmasq install complete..."
 }
@@ -363,6 +364,7 @@ install_sniproxy(){
         systemctl enable sniproxy > /dev/null 2>&1
         systemctl restart sniproxy || (echo -e "[${red}Error:${plain}] Failed to start sniproxy." && exit 1)
     fi
+    cd /tmp
     rm -rf /tmp/sniproxy/
     rm -rf /tmp/sniproxy-domains.txt
     echo -e "[${green}Info${plain}] sniproxy install complete..."
