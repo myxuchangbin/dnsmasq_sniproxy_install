@@ -351,19 +351,22 @@ install_sniproxy(){
         mkdir /var/log/sniproxy
     fi
     echo "启动 SNI Proxy 服务..."
-    if check_sys packageManager yum; then
-        if centosversion 6; then
-            chkconfig sniproxy on > /dev/null 2>&1
-            service sniproxy start || (echo -e "[${red}Error:${plain}] Failed to start sniproxy." && exit 1)
-        elif centosversion 7 || centosversion 8; then
-            systemctl enable sniproxy > /dev/null 2>&1
-            systemctl start sniproxy || (echo -e "[${red}Error:${plain}] Failed to start sniproxy." && exit 1)
-        fi
-    elif check_sys packageManager apt; then
-        systemctl daemon-reload
-        systemctl enable sniproxy > /dev/null 2>&1
-        systemctl restart sniproxy || (echo -e "[${red}Error:${plain}] Failed to start sniproxy." && exit 1)
-    fi
+    touch /etc/systemd/system/sniproxy.service
+    cat >/etc/systemd/system/sniproxy.service <<EOF
+    [Unit]
+    Description=sniproxy servier
+    After=network.target
+     
+    [Service]
+    ExecStart=/usr/local/sbin/sniproxy -c /etc/sniproxy.conf -f
+    Restart=always
+    
+    [Install]
+    WantedBy=multi-user.target
+    
+    EOF
+    systemctl start sniproxy
+    systemctl enable sniproxy
     cd /tmp
     rm -rf /tmp/sniproxy/
     rm -rf /tmp/sniproxy-domains.txt
@@ -541,6 +544,7 @@ unsniproxy(){
         fi
     fi
     rm -rf /etc/sniproxy.conf
+    rm -rf /etc/systemd/system/sniproxy.service
     echo -e "[${green}Info${plain}] services uninstall sniproxy complete..."
 }
 
