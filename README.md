@@ -19,13 +19,13 @@ aarch64
 
 ### 普通安装：
 ``` Bash
-wget --no-check-certificate -O dnsmasq_sniproxy.sh https://raw.githubusercontent.com/myxuchangbin/dnsmasq_sniproxy_install/master/dnsmasq_sniproxy.sh && bash dnsmasq_sniproxy.sh -i
+wget --no-check-certificate -O dnsmasq_sniproxy.sh https://raw.githubusercontent.com/zhouh047/dnsmasq_sniproxy_install/dnsmasq_sniproxy_aarch64/dnsmasq_sniproxy.sh && bash dnsmasq_sniproxy.sh -i
 ```
 * ARM服务器无法使用快速安装，所以只能选择普通安装。
 
 ### 卸载方法：
 ``` Bash
-wget --no-check-certificate -O dnsmasq_sniproxy.sh https://raw.githubusercontent.com/myxuchangbin/dnsmasq_sniproxy_install/master/dnsmasq_sniproxy.sh && bash dnsmasq_sniproxy.sh -u
+ bash dnsmasq_sniproxy.sh -u
 ```
 
 ### 使用方法：
