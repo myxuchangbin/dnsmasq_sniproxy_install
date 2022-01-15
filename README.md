@@ -29,8 +29,28 @@ wget --no-check-certificate -O dnsmasq_sniproxy.sh https://raw.githubusercontent
 ```
 
 ### 使用方法：
-将代理VPS的DNS地址修改为这个主机的IP就可以了，如果不能用，记得只保留一个DNS地址试一下。
-
+- 将代理VPS的DNS地址修改为这个主机的IP就可以了，如果不能用，记得只保留一个DNS地址试一下。
+- 利用x2ray/xray的DNS模块进行分流（推荐），这里贴一下ray的DNS配置文件
+ ```
+	"dns": {
+        "servers": [
+		    "8.8.8.8",
+            {
+                "address": "xxx,xxx,xxx,xxx", //解锁机的IP
+                "port": 53,
+                "domains": [
+                    "fast.com",
+                    "domain:netflix.com",
+                    "domain:netflix.net",
+                    "domain:nflximg.net",
+                    "domain:nflxvideo.net",
+                    "domain:nflxso.net",
+                    "domain:nflxext.com"
+                ]
+            }
+        ]
+    }
+ ```
 防止滥用，建议不要随意公布IP地址，或使用防火墙做好限制工作。
 
 ### 调试排错：
