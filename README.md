@@ -1,4 +1,4 @@
-# Dnsmasq SNIproxy One-click Install
+# 本分支只适用于aarch64架构的服务器！！！
 
 ### 脚本说明：
 
@@ -8,33 +8,20 @@
 
 * 特性：脚本默认解锁`Netflix Hulu HBO`[等](https://github.com/myxuchangbin/dnsmasq_sniproxy_install/blob/master/proxy-domains.txt)，如需增删流媒体域名请编辑文件`/etc/dnsmasq.d/custom_netflix.conf`和`/etc/sniproxy.conf`
 
-* 脚本支持系统：CentOS6+, Debian8+, Ubuntu16+
-    * CentOS6/7/8， Debian8/9/10, Ubuntu16/18 已测试成功
-    * 理论上不限虚拟化类型，如有问题请反馈
-    * 如果脚本最后显示的IP和实际公网IP不相符，请修改一下文件`/etc/sniproxy.conf`中的IP地址
-
-### 脚本用法：
-
-    bash dnsmasq_sniproxy.sh [-h] [-i] [-f] [-id] [-is] [-fs] [-u] [-ud] [-us]
-      -h , --help                显示帮助信息
-      -i , --install             安装 Dnsmasq + SNI Proxy
-      -f , --fastinstall         快速安装 Dnsmasq + SNI Proxy
-      -id, --installdnsmasq      仅安装 Dnsmasq
-      -is, --installsniproxy     仅安装 SNI Proxy
-      -fs, --fastinstallsniproxy 快速安装 SNI Proxy
-      -u , --uninstall           卸载 Dnsmasq + SNI Proxy
-      -ud, --undnsmasq           卸载 Dnsmasq
-      -us, --unsniproxy          卸载 SNI Proxy
-
-### 快速安装（推荐）：
-``` Bash
-wget --no-check-certificate -O dnsmasq_sniproxy.sh https://raw.githubusercontent.com/myxuchangbin/dnsmasq_sniproxy_install/master/dnsmasq_sniproxy.sh && bash dnsmasq_sniproxy.sh -f
+### 脚本支持系统：
 ```
+[opc@instance-20220115-1640 ~]$ arch
+aarch64
+
+```
+* 目前只在甲骨文VPS,系统镜像为Oracle Linux,Shape为VM.Standard.A1.Flex的ARM服务器上测试过，其他ARM服务器请自行尝试。
+* x86架构服务器移步：[https://github.com/myxuchangbin/dnsmasq_sniproxy_install]
 
 ### 普通安装：
 ``` Bash
 wget --no-check-certificate -O dnsmasq_sniproxy.sh https://raw.githubusercontent.com/myxuchangbin/dnsmasq_sniproxy_install/master/dnsmasq_sniproxy.sh && bash dnsmasq_sniproxy.sh -i
 ```
+* ARM服务器无法使用快速安装，所以只能选择普通安装。
 
 ### 卸载方法：
 ``` Bash
