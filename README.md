@@ -39,7 +39,6 @@ wget --no-check-certificate -O dnsmasq_sniproxy.sh https://raw.githubusercontent
                 "address": "xxx,xxx,xxx,xxx", //解锁机的IP
                 "port": 53,
                 "domains": [
-                    "fast.com",
                     "domain:netflix.com",
                     "domain:netflix.net",
                     "domain:nflximg.net",
