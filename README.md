@@ -15,6 +15,7 @@ aarch64
 
 ```
 * 目前只在甲骨文VPS,系统镜像为Oracle Linux,Shape为VM.Standard.A1.Flex的ARM服务器上测试过，其他ARM服务器请自行尝试。
+* 如果您的系统镜像为Ubuntu ，由于Ubuntu默认在端口 53 上有 systemd-resolved 监听。如果您想运行自己的 DNS 服务器，则无法运行，因为端口 53 已在使用中。
 * x86架构服务器移步：[https://github.com/myxuchangbin/dnsmasq_sniproxy_install]
 
 ### 普通安装：
