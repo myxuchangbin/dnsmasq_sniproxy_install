@@ -421,7 +421,7 @@ help(){
     echo "使用方法：bash $0 [-h] [-i] [-f] [-id] [-is] [-fs] [-u] [-ud] [-us]"
     echo ""
     echo "  -h , --help                显示帮助信息"
-    echo "  -i , --install             安装 Dnsmasq + SNI Proxy"
+    echo "  -i , --install             编译安装 Dnsmasq + SNI Proxy"
     echo "  -f , --fastinstall         快速安装 Dnsmasq + SNI Proxy"
     echo "  -id, --installdnsmasq      仅安装 Dnsmasq"
     echo "  -is, --installsniproxy     仅安装 SNI Proxy"
