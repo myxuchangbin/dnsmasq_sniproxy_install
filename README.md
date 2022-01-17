@@ -29,12 +29,12 @@
 
 ### 快速安装（推荐）：
 ``` Bash
-wget --no-check-certificate -O dnsmasq_sniproxy.sh https://raw.githubusercontent.com/zhouh047/dnsmasq_sniproxy_install/dnsmasq_sniproxy_aarch64/dnsmasq_sniproxy.sh  -f
+wget --no-check-certificate -O dnsmasq_sniproxy.sh https://raw.githubusercontent.com/zhouh047/dnsmasq_sniproxy_install/dnsmasq_sniproxy_aarch64/dnsmasq_sniproxy.sh && bash dnsmasq_sniproxy.sh -f
 ```
 
 ### 普通安装：
 ``` Bash
-wget --no-check-certificate -O dnsmasq_sniproxy.sh https://raw.githubusercontent.com/zhouh047/dnsmasq_sniproxy_install/dnsmasq_sniproxy_aarch64/dnsmasq_sniproxy.sh  -i
+wget --no-check-certificate -O dnsmasq_sniproxy.sh https://raw.githubusercontent.com/zhouh047/dnsmasq_sniproxy_install/dnsmasq_sniproxy_aarch64/dnsmasq_sniproxy.sh && bash dnsmasq_sniproxy.sh -i
 ```
 
 ### 卸载方法：
