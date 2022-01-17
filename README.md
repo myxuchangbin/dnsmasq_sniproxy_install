@@ -18,7 +18,7 @@
 
     bash dnsmasq_sniproxy.sh [-h] [-i] [-f] [-id] [-is] [-fs] [-u] [-ud] [-us]
       -h , --help                显示帮助信息
-      -i , --install             安装 Dnsmasq + SNI Proxy
+      -i , --install             编译安装 Dnsmasq + SNI Proxy
       -f , --fastinstall         快速安装 Dnsmasq + SNI Proxy
       -id, --installdnsmasq      仅安装 Dnsmasq
       -is, --installsniproxy     仅安装 SNI Proxy
