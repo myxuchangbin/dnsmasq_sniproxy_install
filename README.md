@@ -21,8 +21,8 @@
       -i , --install             编译安装 Dnsmasq + SNI Proxy
       -f , --fastinstall         快速安装 Dnsmasq + SNI Proxy
       -id, --installdnsmasq      仅安装 Dnsmasq
-      -is, --installsniproxy     仅安装 SNI Proxy
-      -fs, --fastinstallsniproxy 快速安装 SNI Proxy
+      -is, --installsniproxy     仅编译安装 SNI Proxy
+      -fs, --fastinstallsniproxy 仅快速安装 SNI Proxy
       -u , --uninstall           卸载 Dnsmasq + SNI Proxy
       -ud, --undnsmasq           卸载 Dnsmasq
       -us, --unsniproxy          卸载 SNI Proxy
