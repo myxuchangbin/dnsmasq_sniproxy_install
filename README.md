@@ -47,7 +47,7 @@ bash dnsmasq_sniproxy.sh -u
 ### 使用方法：
 * 1、将代理VPS的DNS地址修改为这个主机的IP就可以了，如果不能用，记得只保留一个DNS地址试一下。
 * 2、如果您搭配V2ray进行DNS分流，请确保V2ray-core版本大于4.28.2，此版本修复了http outbound阻塞问题。
-* 3、不推荐您搭配Xray进行DNS分流，因为Xray目前存在http outbound阻塞问题。
+* 3、不推荐您搭配Xray进行DNS分流，因为Xray-core1.5.2目前存在http outbound阻塞问题，请等待Xray新版本修复。
 * 4、如果您不想放弃Xtls的极致性能，推荐安装V2ray 4.32.1版本。
 
 防止滥用，建议不要随意公布IP地址，或使用防火墙做好限制工作。
