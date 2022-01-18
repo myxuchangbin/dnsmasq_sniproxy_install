@@ -10,6 +10,8 @@
 
 * 脚本支持系统：CentOS6+, Debian8+, Ubuntu16+
 
+* 如果脚本最后显示的IP和实际公网IP不相符，请修改一下文件`/etc/sniproxy.conf`中的IP地址
+
 * 如果您的系统镜像为Ubuntu ，由于Ubuntu默认在端口 53 上有 systemd-resolved 监听。如果您想运行自己的 DNS 服务器，则无法运行，因为端口 53 已在使用中。
 
 * 本分支针对aarch64架构服务器进行了优化,其他ARM架构服务器需选择编译安装，而不是快速安装。
@@ -43,7 +45,10 @@ bash dnsmasq_sniproxy.sh -u
 ```
 
 ### 使用方法：
-将代理VPS的DNS地址修改为这个主机的IP就可以了，如果不能用，记得只保留一个DNS地址试一下。
+* 1、将代理VPS的DNS地址修改为这个主机的IP就可以了，如果不能用，记得只保留一个DNS地址试一下。
+* 2、如果您搭配V2ray进行DNS分流，请确保V2ray-core版本大于4.28.2，此版本修复了http outbound阻塞问题。
+* 3、不推荐您搭配Xray进行DNS分流，因为Xray目前存在http outbound阻塞问题。
+* 4、如果您不想放弃Xtls的极致性能，推荐安装V2ray 4.32.1版本。
 
 防止滥用，建议不要随意公布IP地址，或使用防火墙做好限制工作。
 
