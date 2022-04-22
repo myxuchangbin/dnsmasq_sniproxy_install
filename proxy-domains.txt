@@ -19,6 +19,7 @@ edgecastcdn.net
 cloudfront.net
 netflix.com
 netflix.net
+nflximg.com
 nflximg.net
 nflxvideo.net
 nflxso.net
