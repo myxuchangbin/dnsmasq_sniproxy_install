@@ -224,12 +224,26 @@ install_dependencies(){
 
 compile_dnsmasq(){
     if check_sys packageManager yum; then
+        error_detect_depends "yum -y install epel-release"
         error_detect_depends "yum -y install make"
         error_detect_depends "yum -y install gcc-c++"
+        error_detect_depends "yum -y install nettle-devel"
+        error_detect_depends "yum -y install gettext"
+        error_detect_depends "yum -y install libidn-devel"
+        #error_detect_depends "yum -y install libidn2-devel"
+        error_detect_depends "yum -y install libnetfilter_conntrack-devel"
+        error_detect_depends "yum -y install dbus-devel"
     elif check_sys packageManager apt; then
         error_detect_depends "apt -y install make"
         error_detect_depends "apt -y install gcc"
         error_detect_depends "apt -y install g++"
+        error_detect_depends "apt -y install pkg-config"
+        error_detect_depends "apt -y install nettle-dev"
+        error_detect_depends "apt -y install gettext"
+        error_detect_depends "apt -y install libidn11-dev"
+        #error_detect_depends "apt -y install libidn2-dev"
+        error_detect_depends "apt -y install libnetfilter-conntrack-dev"
+        error_detect_depends "apt -y install libdbus-1-dev"
     fi
     if [ -e /tmp/dnsmasq-2.88 ]; then
         rm -rf /tmp/dnsmasq-2.88
@@ -238,7 +252,7 @@ compile_dnsmasq(){
     download dnsmasq-2.88.tar.gz https://thekelleys.org.uk/dnsmasq/dnsmasq-2.88.tar.gz
     tar -zxf dnsmasq-2.88.tar.gz
     cd dnsmasq-2.88
-    make V=s
+    make all-i18n V=s COPTS='-DHAVE_DNSSEC -DHAVE_IDN -DHAVE_CONNTRACK -DHAVE_DBUS'
     if [ $? -ne 0 ]; then
         echo -e "[${red}Error${plain}] dnsmasq upgrade failed."
         rm -rf /tmp/dnsmasq-2.88 /tmp/dnsmasq-2.88.tar.gz
@@ -403,16 +417,18 @@ install_check(){
 }
 
 ready_install(){
-    echo "检测您的系統..."
+    echo "检测您的系统..."
     if ! install_check; then
         echo -e "[${red}Error${plain}] Your OS is not supported to run it!"
         echo -e "Please change to CentOS 6+/Debian 8+/Ubuntu 16+ and try again."
         exit 1
     fi
     if check_sys packageManager yum; then
+        yum makecache
         error_detect_depends "yum -y install net-tools"
         error_detect_depends "yum -y install wget"
     elif check_sys packageManager apt; then
+        apt update
         error_detect_depends "apt-get -y install net-tools"
         error_detect_depends "apt-get -y install wget"
     fi
