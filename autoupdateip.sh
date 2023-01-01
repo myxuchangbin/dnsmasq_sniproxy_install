@@ -18,7 +18,7 @@ elif cat /proc/version | grep -Eqi "ubuntu"; then
 elif cat /proc/version | grep -Eqi "centos|red hat|redhat"; then
     release="centos"
 else
-    echo -e "${red}未检测到系统版本，请联系脚本作者！${plain}\n" && exit 1
+    echo -e "[Error] 未检测到系统版本，请检查\n" && exit 1
 fi
 
 if ! command -v wget >/dev/null 2>&1; then 
@@ -55,7 +55,7 @@ else
 fi
 
 file=/etc/dnsmasq.d/custom_netflix.conf
-[ ! -e ${file} ] && echo "[Error] dnsmasq配置文件不存在，请检查." && exit 1
+[ ! -e ${file} ] && echo "[Error] dnsmasq配置文件不存在，请检查" && exit 1
 IPREX='([0-9]{1,2}|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\.([0-9]{1,2}|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\.([0-9]{1,2}|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\.([0-9]{1,2}|1[0-9][0-9]|2[0-4][0-9]|25[0-5])'
 time=`date +"%Y-%m-%d-%H:%M"`
 oldip=`grep netflix.com ${file}|grep -Eo "$IPREX"|tail -n1`
