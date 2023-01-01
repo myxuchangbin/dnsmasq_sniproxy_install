@@ -63,11 +63,11 @@ oldip=`grep netflix.com ${file}|grep -Eo "$IPREX"|tail -n1`
 if [ $oldip != $newip ]; then
     sed -i "s/$oldip/$newip/g" ${file}
     systemctl restart dnsmasq
+    [ -e /tmp/autochangeip.log ] || touch /tmp/autochangeip.log
     echo "${time} - ${oldip} updated to ${newip}" >> /tmp/autochangeip.log
+    tail -n 100 /tmp/autochangeip.log > /tmp/tmpautochangeip.log
+    mv -f /tmp/tmpautochangeip.log /tmp/autochangeip.log
 fi
-
-tail -n 100 /tmp/autochangeip.log > /tmp/tmpautochangeip.log
-mv -f /tmp/tmpautochangeip.log /tmp/autochangeip.log
 
 #说明
 #本脚本为方便一些动态IP解锁主机，实现自动更新dnsmasq解析记录
