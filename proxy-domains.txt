@@ -108,3 +108,12 @@ dmm-extension.com
 dmmapis.com
 api-p.videomarket.jp
 saima.zlzd.xyz
+openai.com
+pay.openai.com
+chat.openai.com
+challenges.cloudflare.com
+auth0.openai.com
+platform.openai.com
+ai.com
+invoice.stripe.com
+stripe.com
