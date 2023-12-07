@@ -106,7 +106,9 @@ dmm.com
 dmm.co.jp
 dmm-extension.com
 dmmapis.com
-api-p.videomarket.jp
+videomarket.jp
+p-smith.com
+img.vm-movie.jp
 saima.zlzd.xyz
 challenges.cloudflare.com
 ai.com
