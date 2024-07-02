@@ -195,6 +195,7 @@ install_dependencies(){
                 error_detect_depends "yum -y install centos-release-scl"
                 error_detect_depends "yum -y install devtoolset-6-gcc-c++"
             elif centosversion 7 || centosversion 8; then
+                yum config-manager --set-enabled powertools
                 yum groups list development | grep Installed > /dev/null 2>&1
                 if [[ $? -eq 0 ]]; then
                     yum groups mark remove development -y > /dev/null 2>&1
