@@ -148,7 +148,7 @@ config_firewall(){
         else
             echo -e "[${yellow}Warning${plain}] iptables looks like not running or not installed, please enable port ${ports} manually if necessary."
         fi
-    elif centosversion 7 || centosversion 8; then
+    else
         systemctl status firewalld > /dev/null 2>&1
         if [ $? -eq 0 ]; then
             default_zone=$(firewall-cmd --get-default-zone)
@@ -174,7 +174,7 @@ install_dependencies(){
         fi
         [ ! -f /etc/yum.repos.d/epel.repo ] && echo -e "[${red}Error${plain}] Install EPEL repository failed, please check it." && exit 1
         [ ! "$(command -v yum-config-manager)" ] && yum install -y yum-utils > /dev/null 2>&1
-        [ x"$(yum-config-manager epel | grep -w enabled | awk '{print $3}')" != x"True" ] && yum-config-manager --enable epel > /dev/null 2>&1
+        [ x"$(yum repolist epel | grep -w epel | awk '{print $NF}')" != x"enabled" ] && yum-config-manager --enable epel > /dev/null 2>&1
         echo -e "[${green}Info${plain}] Checking the EPEL repository complete..."
 
         if [[ ${fastmode} = "1" ]]; then
@@ -183,7 +183,7 @@ install_dependencies(){
             )
         else
             yum_depends=(
-                git autoconf automake curl gettext-devel libev-devel pcre-devel perl pkgconfig rpm-build udns-devel
+                autoconf automake curl gettext-devel libev-devel pcre-devel perl udns-devel
             )
         fi
         for depend in ${yum_depends[@]}; do
@@ -194,7 +194,7 @@ install_dependencies(){
                 error_detect_depends "yum -y groupinstall development"
                 error_detect_depends "yum -y install centos-release-scl"
                 error_detect_depends "yum -y install devtoolset-6-gcc-c++"
-            elif centosversion 7 || centosversion 8; then
+            else
                 yum config-manager --set-enabled powertools
                 yum groups list development | grep Installed > /dev/null 2>&1
                 if [[ $? -eq 0 ]]; then
@@ -210,7 +210,7 @@ install_dependencies(){
             )
         else
             apt_depends=(
-                git autotools-dev cdbs debhelper dh-autoreconf dpkg-dev gettext libev-dev libpcre3-dev libudns-dev pkg-config fakeroot devscripts
+                autotools-dev cdbs curl gettext libev-dev libpcre3-dev libudns-dev
             )
         fi
         apt-get -y update
@@ -290,7 +290,7 @@ install_dnsmasq(){
         if centosversion 6; then
             chkconfig dnsmasq on
             service dnsmasq start
-        elif centosversion 7 || centosversion 8; then
+        else
             systemctl enable dnsmasq
             systemctl start dnsmasq
         fi
@@ -323,36 +323,35 @@ install_sniproxy(){
     bit=`uname -m`
     cd /tmp
     if [[ ${fastmode} = "0" ]]; then
-        if [ -e sniproxy ]; then
-            rm -rf sniproxy
+        if [ -e sniproxy-0.6.1 ]; then
+            rm -rf sniproxy-0.6.1
         fi
-        git clone https://github.com/dlundquist/sniproxy.git
-        cd sniproxy
+        download /tmp/sniproxy-0.6.1.tar.gz https://github.com/dlundquist/sniproxy/archive/refs/tags/0.6.1.tar.gz
+        tar -zxf sniproxy-0.6.1.tar.gz
+        cd sniproxy-0.6.1
     fi
     if check_sys packageManager yum; then
         if [[ ${fastmode} = "1" ]]; then
             if [[ ${bit} = "x86_64" ]]; then
                 download /tmp/sniproxy-0.6.1-1.el8.x86_64.rpm https://github.com/myxuchangbin/dnsmasq_sniproxy_install/raw/master/sniproxy/sniproxy-0.6.1-1.el8.x86_64.rpm
                 error_detect_depends "yum -y install /tmp/sniproxy-0.6.1-1.el8.x86_64.rpm"
-                rm -rf /tmp/sniproxy-0.6.1-1.el8.x86_64.rpm
+                rm -f /tmp/sniproxy-0.6.1-1.el8.x86_64.rpm
             else
                 echo -e "${red}暂不支持${bit}内核，请使用编译模式安装！${plain}" && exit 1
             fi
         else
-            ./autogen.sh && ./configure && make dist
             if centosversion 6; then
+                ./autogen.sh && ./configure && make dist
                 scl enable devtoolset-6 'rpmbuild --define "_sourcedir `pwd`" --define "_topdir /tmp/sniproxy/rpmbuild" --define "debug_package %{nil}" -ba redhat/sniproxy.spec'
-                download /etc/init.d/sniproxy https://raw.githubusercontent.com/dlundquist/sniproxy/master/redhat/sniproxy.init && chmod +x /etc/init.d/sniproxy
-            elif centosversion 7 || centosversion 8; then
-                sed -i "s/\%configure CFLAGS\=\"-I\/usr\/include\/libev\"/\%configure CFLAGS\=\"-fPIC -I\/usr\/include\/libev\"/" redhat/sniproxy.spec
-                rpmbuild --define "_sourcedir `pwd`" --define "_topdir /tmp/sniproxy/rpmbuild" --define "debug_package %{nil}" -ba redhat/sniproxy.spec
+                error_detect_depends "yum -y install /tmp/sniproxy/rpmbuild/RPMS/x86_64/sniproxy-*.rpm"
+            else
+                ./autogen.sh && ./configure --prefix=/usr && make && make install
             fi
-            error_detect_depends "yum -y install /tmp/sniproxy/rpmbuild/RPMS/x86_64/sniproxy-*.rpm"
         fi
         if centosversion 6; then
             download /etc/init.d/sniproxy https://raw.githubusercontent.com/dlundquist/sniproxy/master/redhat/sniproxy.init && chmod +x /etc/init.d/sniproxy
             [ ! -f /etc/init.d/sniproxy ] && echo -e "[${red}Error${plain}] 下载Sniproxy启动文件出现问题，请检查." && exit 1
-        elif centosversion 7 || centosversion 8; then
+        else
             download /etc/systemd/system/sniproxy.service https://raw.githubusercontent.com/myxuchangbin/dnsmasq_sniproxy_install/master/sniproxy.service
             systemctl daemon-reload
             [ ! -f /etc/systemd/system/sniproxy.service ] && echo -e "[${red}Error${plain}] 下载Sniproxy启动文件出现问题，请检查." && exit 1
@@ -362,14 +361,12 @@ install_sniproxy(){
             if [[ ${bit} = "x86_64" ]]; then
                 download /tmp/sniproxy_0.6.1_amd64.deb https://github.com/myxuchangbin/dnsmasq_sniproxy_install/raw/master/sniproxy/sniproxy_0.6.1_amd64.deb
                 error_detect_depends "dpkg -i --no-debsig /tmp/sniproxy_0.6.1_amd64.deb"
-                rm -rf /tmp/sniproxy_0.6.1_amd64.deb
+                rm -f /tmp/sniproxy_0.6.1_amd64.deb
             else
                 echo -e "${red}暂不支持${bit}内核，请使用编译模式安装！${plain}" && exit 1
             fi
         else
-            ./autogen.sh && dpkg-buildpackage
-            error_detect_depends "dpkg -i --no-debsig ../sniproxy_*.deb"
-            rm -rf /tmp/sniproxy*.deb
+            env NAME=sniproxy ./autogen.sh && ./configure --prefix=/usr && make && make install
         fi  
         download /etc/systemd/system/sniproxy.service https://raw.githubusercontent.com/myxuchangbin/dnsmasq_sniproxy_install/master/sniproxy.service
         systemctl daemon-reload
@@ -388,7 +385,7 @@ install_sniproxy(){
         if centosversion 6; then
             chkconfig sniproxy on > /dev/null 2>&1
             service sniproxy start || (echo -e "[${red}Error:${plain}] Failed to start sniproxy." && exit 1)
-        elif centosversion 7 || centosversion 8; then
+        else
             systemctl enable sniproxy > /dev/null 2>&1
             systemctl start sniproxy || (echo -e "[${red}Error:${plain}] Failed to start sniproxy." && exit 1)
         fi
@@ -397,7 +394,7 @@ install_sniproxy(){
         systemctl restart sniproxy || (echo -e "[${red}Error:${plain}] Failed to start sniproxy." && exit 1)
     fi
     cd /tmp
-    rm -rf /tmp/sniproxy/
+    rm -rf /tmp/sniproxy-0.6.1/
     rm -rf /tmp/sniproxy-domains.txt
     echo -e "[${green}Info${plain}] sniproxy install complete..."
 }
@@ -527,7 +524,7 @@ undnsmasq(){
         if centosversion 6; then
             chkconfig dnsmasq off > /dev/null 2>&1
             service dnsmasq stop || echo -e "[${red}Error:${plain}] Failed to stop dnsmasq."
-        elif centosversion 7 || centosversion 8; then
+        else
             systemctl disable dnsmasq > /dev/null 2>&1
             systemctl stop dnsmasq || echo -e "[${red}Error:${plain}] Failed to stop dnsmasq."
         fi
@@ -558,7 +555,7 @@ unsniproxy(){
         if centosversion 6; then
             chkconfig sniproxy off > /dev/null 2>&1
             service sniproxy stop || echo -e "[${red}Error:${plain}] Failed to stop sniproxy."
-        elif centosversion 7 || centosversion 8; then
+        else
             systemctl disable sniproxy > /dev/null 2>&1
             systemctl stop sniproxy || echo -e "[${red}Error:${plain}] Failed to stop sniproxy."
         fi
