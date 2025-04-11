@@ -300,11 +300,6 @@ install_dnsmasq(){
         elif ! grep -q "^IGNORE_RESOLVCONF=yes" /etc/default/dnsmasq; then
             echo "IGNORE_RESOLVCONF=yes" >> /etc/default/dnsmasq
         fi
-        if grep -q "^#DNSMASQ_EXCEPT=\"lo\"" /etc/default/dnsmasq; then
-            sed -i 's/^#DNSMASQ_EXCEPT="lo"/DNSMASQ_EXCEPT="lo"/' /etc/default/dnsmasq
-        elif ! grep -q "^DNSMASQ_EXCEPT=\"lo\"" /etc/default/dnsmasq; then
-            echo 'DNSMASQ_EXCEPT="lo"' >> /etc/default/dnsmasq
-        fi
         systemctl enable dnsmasq
         systemctl restart dnsmasq
     fi
