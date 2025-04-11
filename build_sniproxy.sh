@@ -131,7 +131,7 @@ install_dependencies(){
         fi
     elif check_sys packageManager apt; then
         apt_depends=(
-            autotools-dev cdbs debhelper dh-autoreconf dpkg-dev gettext libev-dev libpcre3-dev libudns-dev pkg-config fakeroot devscripts
+            autotools-dev cdbs debhelper dh-autoreconf dpkg-dev gettext libev-dev libpcre3-dev libudns-dev pkg-config fakeroot devscripts autoconf
         )
         apt-get -y update
         for depend in ${apt_depends[@]}; do

@@ -210,7 +210,7 @@ install_dependencies(){
             )
         else
             apt_depends=(
-                autotools-dev cdbs curl gettext libev-dev libpcre3-dev libudns-dev
+                autotools-dev cdbs curl gettext libev-dev libpcre3-dev libudns-dev autoconf devscripts
             )
         fi
         apt-get -y update
@@ -246,17 +246,17 @@ compile_dnsmasq(){
         error_detect_depends "apt -y install libnetfilter-conntrack-dev"
         error_detect_depends "apt -y install libdbus-1-dev"
     fi
-    if [ -e /tmp/dnsmasq-2.90 ]; then
-        rm -rf /tmp/dnsmasq-2.90
+    if [ -e /tmp/dnsmasq-2.91 ]; then
+        rm -rf /tmp/dnsmasq-2.91
     fi
     cd /tmp/
-    download dnsmasq-2.90.tar.gz https://thekelleys.org.uk/dnsmasq/dnsmasq-2.90.tar.gz
-    tar -zxf dnsmasq-2.90.tar.gz
-    cd dnsmasq-2.90
+    download dnsmasq-2.91.tar.gz https://thekelleys.org.uk/dnsmasq/dnsmasq-2.91.tar.gz
+    tar -zxf dnsmasq-2.91.tar.gz
+    cd dnsmasq-2.91
     make all-i18n V=s COPTS='-DHAVE_DNSSEC -DHAVE_IDN -DHAVE_CONNTRACK -DHAVE_DBUS'
     if [ $? -ne 0 ]; then
         echo -e "[${red}Error${plain}] dnsmasq upgrade failed."
-        rm -rf /tmp/dnsmasq-2.90 /tmp/dnsmasq-2.90.tar.gz
+        rm -rf /tmp/dnsmasq-2.91 /tmp/dnsmasq-2.91.tar.gz
         exit 1
     fi
 }
@@ -268,14 +268,14 @@ install_dnsmasq(){
         error_detect_depends "yum -y install dnsmasq"
         if centosversion 6; then
             compile_dnsmasq
-            yes|cp -f /tmp/dnsmasq-2.90/src/dnsmasq /usr/sbin/dnsmasq && chmod +x /usr/sbin/dnsmasq
+            yes|cp -f /tmp/dnsmasq-2.91/src/dnsmasq /usr/sbin/dnsmasq && chmod +x /usr/sbin/dnsmasq
         fi
     elif check_sys packageManager apt; then
         error_detect_depends "apt -y install dnsmasq"
     fi
     if [[ ${fastmode} = "0" ]]; then
         compile_dnsmasq
-        yes|cp -f /tmp/dnsmasq-2.90/src/dnsmasq /usr/sbin/dnsmasq && chmod +x /usr/sbin/dnsmasq
+        yes|cp -f /tmp/dnsmasq-2.91/src/dnsmasq /usr/sbin/dnsmasq && chmod +x /usr/sbin/dnsmasq
     fi
     [ ! -f /usr/sbin/dnsmasq ] && echo -e "[${red}Error${plain}] 安装dnsmasq出现问题，请检查." && exit 1
     download /etc/dnsmasq.d/custom_netflix.conf https://raw.githubusercontent.com/myxuchangbin/dnsmasq_sniproxy_install/master/dnsmasq.conf
@@ -295,11 +295,21 @@ install_dnsmasq(){
             systemctl start dnsmasq
         fi
     elif check_sys packageManager apt; then
+        if grep -q "^#IGNORE_RESOLVCONF=yes" /etc/default/dnsmasq; then
+            sed -i 's/^#IGNORE_RESOLVCONF=yes/IGNORE_RESOLVCONF=yes/' /etc/default/dnsmasq
+        elif ! grep -q "^IGNORE_RESOLVCONF=yes" /etc/default/dnsmasq; then
+            echo "IGNORE_RESOLVCONF=yes" >> /etc/default/dnsmasq
+        fi
+        if grep -q "^#DNSMASQ_EXCEPT=\"lo\"" /etc/default/dnsmasq; then
+            sed -i 's/^#DNSMASQ_EXCEPT="lo"/DNSMASQ_EXCEPT="lo"/' /etc/default/dnsmasq
+        elif ! grep -q "^DNSMASQ_EXCEPT=\"lo\"" /etc/default/dnsmasq; then
+            echo 'DNSMASQ_EXCEPT="lo"' >> /etc/default/dnsmasq
+        fi
         systemctl enable dnsmasq
         systemctl restart dnsmasq
     fi
     cd /tmp
-    rm -rf /tmp/dnsmasq-2.90 /tmp/dnsmasq-2.90.tar.gz /tmp/proxy-domains.txt
+    rm -rf /tmp/dnsmasq-2.91 /tmp/dnsmasq-2.91.tar.gz /tmp/proxy-domains.txt
     echo -e "[${green}Info${plain}] dnsmasq install complete..."
 }
 
@@ -366,7 +376,7 @@ install_sniproxy(){
                 echo -e "${red}暂不支持${bit}内核，请使用编译模式安装！${plain}" && exit 1
             fi
         else
-            env NAME=sniproxy ./autogen.sh && ./configure --prefix=/usr && make && make install
+            env NAME="sniproxy" DEBFULLNAME="sniproxy" DEBEMAIL="sniproxy@example.com" EMAIL="sniproxy@example.com" ./autogen.sh && ./configure --prefix=/usr && make && make install
         fi  
         download /etc/systemd/system/sniproxy.service https://raw.githubusercontent.com/myxuchangbin/dnsmasq_sniproxy_install/master/sniproxy.service
         systemctl daemon-reload
