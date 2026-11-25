@@ -114,6 +114,14 @@ centosversion(){
     fi
 }
 
+centosversion_at_least(){
+    check_sys sysRelease centos || return 1
+    local version
+    version="$(getversion)"
+    [[ "${version%%.*}" =~ ^[0-9]+$ ]] &&
+        (( ${version%%.*} >= $1 ))
+}
+
 get_ip(){
     local IP=$( ip addr | egrep -o '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' | egrep -v "^192\.168|^172\.1[6-9]\.|^172\.2[0-9]\.|^172\.3[0-2]\.|^10\.|^127\.|^255\.|^0\." | head -n 1 )
     [ -z ${IP} ] && IP=$( wget -qO- -t1 -T2 http://ipv4.icanhazip.com )
@@ -209,13 +217,19 @@ install_dependencies(){
         [ x"$(yum repolist epel | grep -w epel | awk '{print $NF}')" != x"enabled" ] && yum-config-manager --enable epel > /dev/null 2>&1
         echo -e "[${green}Info${plain}] Checking the EPEL repository complete..."
 
+        # CentOS Stream 10 / RHEL 10 系列使用 PCRE2；
+        # 之前的版本使用 PCRE1。
+        local pcre_dev="pcre-devel"
+        if centosversion_at_least 10; then
+            pcre_dev="pcre2-devel"
+        fi
         if [[ ${fastmode} = "1" ]]; then
             yum_depends=(
-                curl gettext-devel libev-devel pcre-devel perl udns-devel
+                curl gettext-devel libev-devel "${pcre_dev}" perl udns-devel
             )
         else
             yum_depends=(
-                autoconf automake curl gettext-devel libev-devel pcre-devel perl udns-devel
+                autoconf automake curl gettext-devel libev-devel "${pcre_dev}" perl udns-devel
             )
         fi
         for depend in ${yum_depends[@]}; do
@@ -362,9 +376,18 @@ install_dnsmasq(){
 }
 
 has_libpcre2_dev(){
-    command -v dpkg-query >/dev/null 2>&1 &&
-        dpkg-query -W -f='${db:Status-Status}' libpcre2-dev 2>/dev/null |
-        grep -qx installed
+    # Debian/Ubuntu
+    if command -v dpkg-query >/dev/null 2>&1 &&
+       dpkg-query -W -f='${db:Status-Status}' libpcre2-dev 2>/dev/null |
+           grep -qx installed; then
+        return 0
+    fi
+    # CentOS/RHEL 系
+    if command -v rpm >/dev/null 2>&1 &&
+       rpm -q pcre2-devel >/dev/null 2>&1; then
+        return 0
+    fi
+    return 1
 }
 
 install_sniproxy(){
