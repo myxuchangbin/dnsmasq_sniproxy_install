@@ -19,11 +19,40 @@ disable_selinux(){
 check_sys(){
     local checkType=$1
     local value=$2
-
     local release=''
     local systemPackage=''
 
-    if [[ -f /etc/redhat-release ]]; then
+    if [[ -r /etc/os-release ]]; then
+        . /etc/os-release
+
+        case "${ID:-}" in
+            debian|raspbian)
+                release="debian"
+                systemPackage="apt"
+                ;;
+            ubuntu)
+                release="ubuntu"
+                systemPackage="apt"
+                ;;
+            centos|rhel|rocky|almalinux|ol)
+                release="centos"
+                systemPackage="yum"
+                ;;
+            *)
+                # 兼容以 Debian/Ubuntu/RHEL 为基础的衍生发行版
+                case " ${ID_LIKE:-} " in
+                    *" debian "*|*" ubuntu "*)
+                        release="debian"
+                        systemPackage="apt"
+                        ;;
+                    *" rhel "*|*" fedora "*|*" centos "*)
+                        release="centos"
+                        systemPackage="yum"
+                        ;;
+                esac
+                ;;
+        esac
+    elif [[ -f /etc/redhat-release ]]; then
         release="centos"
         systemPackage="yum"
     elif grep -Eqi "debian|raspbian" /etc/issue; then
@@ -46,26 +75,27 @@ check_sys(){
         systemPackage="yum"
     fi
 
-    if [[ "${checkType}" == "sysRelease" ]]; then
-        if [ "${value}" == "${release}" ]; then
-            return 0
-        else
-            return 1
-        fi
-    elif [[ "${checkType}" == "packageManager" ]]; then
-        if [ "${value}" == "${systemPackage}" ]; then
-            return 0
-        else
-            return 1
-        fi
-    fi
+    case "${checkType}" in
+        sysRelease)
+            [[ "${value}" == "${release}" ]]
+            return
+            ;;
+        packageManager)
+            [[ "${value}" == "${systemPackage}" ]]
+            return
+            ;;
+        *)
+            return 2
+            ;;
+    esac
 }
 
 getversion(){
-    if [[ -s /etc/redhat-release ]]; then
-        grep -oE  "[0-9.]+" /etc/redhat-release
-    else
-        grep -oE  "[0-9.]+" /etc/issue
+    if [[ -r /etc/os-release ]]; then
+        . /etc/os-release
+        printf '%s\n' "${VERSION_ID:-}"
+    elif [[ -s /etc/redhat-release ]]; then
+        grep -oE '[0-9]+([.][0-9]+)*' /etc/redhat-release | head -n 1
     fi
 }
 
@@ -86,8 +116,8 @@ centosversion(){
 
 get_ip(){
     local IP=$( ip addr | egrep -o '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' | egrep -v "^192\.168|^172\.1[6-9]\.|^172\.2[0-9]\.|^172\.3[0-2]\.|^10\.|^127\.|^255\.|^0\." | head -n 1 )
-    [ -z ${IP} ] && IP=$( wget -qO- -t1 -T2 ipv4.icanhazip.com )
-    [ -z ${IP} ] && IP=$( wget -qO- -t1 -T2 ipinfo.io/ip )
+    [ -z ${IP} ] && IP=$( wget -qO- -t1 -T2 http://ipv4.icanhazip.com )
+    [ -z ${IP} ] && IP=$( wget -qO- -t1 -T2 http://ipinfo.io/ip )
     echo ${IP}
 }
 
@@ -108,12 +138,14 @@ check_ip(){
 }
 
 download(){
-    local filename=${1}
+    local filename=$1
+    local url=$2
+
     echo -e "[${green}Info${plain}] ${filename} download configuration now..."
-    wget --no-check-certificate -q -t3 -T60 -O ${1} ${2}
-    if [ $? -ne 0 ]; then
+
+    if ! wget --no-check-certificate -q -t3 -T60 -O "$filename" "$url"; then
         echo -e "[${red}Error${plain}] Download ${filename} failed."
-        exit 1
+        return 1
     fi
 }
 
@@ -204,13 +236,34 @@ install_dependencies(){
             fi
         fi
     elif check_sys packageManager apt; then
+        # Debian 13+、Ubuntu 25.10+ 使用 PCRE2；
+        # Debian 12、Ubuntu 24.04 及更早版本仍使用 PCRE3。
+        local pcre_dev="libpcre3-dev"
+        if [[ -r /etc/os-release ]]; then
+            . /etc/os-release
+            case "${ID:-}" in
+                debian)
+                    if [[ "${VERSION_ID%%.*}" -ge 13 ]]; then
+                        pcre_dev="libpcre2-dev"
+                    fi
+                    ;;
+                ubuntu)
+                    if [[ "${VERSION_ID%%.*}" -ge 25 ]]; then
+                        if [[ "${VERSION_ID}" == "25.10" ]] ||
+                           [[ "${VERSION_ID%%.*}" -ge 26 ]]; then
+                            pcre_dev="libpcre2-dev"
+                        fi
+                    fi
+                    ;;
+            esac
+        fi
         if [[ ${fastmode} = "1" ]]; then
             apt_depends=(
-                curl gettext libev-dev libpcre3-dev libudns-dev
+                curl gettext libev-dev "${pcre_dev}" libudns-dev
             )
         else
             apt_depends=(
-                autotools-dev cdbs curl gettext libev-dev libpcre3-dev libudns-dev autoconf devscripts
+                autotools-dev cdbs curl gettext libev-dev "${pcre_dev}" libudns-dev autoconf devscripts
             )
         fi
         apt-get -y update
@@ -246,17 +299,17 @@ compile_dnsmasq(){
         error_detect_depends "apt -y install libnetfilter-conntrack-dev"
         error_detect_depends "apt -y install libdbus-1-dev"
     fi
-    if [ -e /tmp/dnsmasq-2.92 ]; then
-        rm -rf /tmp/dnsmasq-2.92
+    if [ -e /tmp/dnsmasq-2.93 ]; then
+        rm -rf /tmp/dnsmasq-2.93
     fi
     cd /tmp/
-    download dnsmasq-2.92.tar.gz https://thekelleys.org.uk/dnsmasq/dnsmasq-2.92.tar.gz
-    tar -zxf dnsmasq-2.92.tar.gz
-    cd dnsmasq-2.92
+    download dnsmasq-2.93.tar.gz https://thekelleys.org.uk/dnsmasq/dnsmasq-2.93.tar.gz || exit 1
+    tar -zxf dnsmasq-2.93.tar.gz || exit 1
+    cd dnsmasq-2.93
     make all-i18n V=s COPTS='-DHAVE_DNSSEC -DHAVE_IDN -DHAVE_CONNTRACK -DHAVE_DBUS'
     if [ $? -ne 0 ]; then
         echo -e "[${red}Error${plain}] dnsmasq upgrade failed."
-        rm -rf /tmp/dnsmasq-2.92 /tmp/dnsmasq-2.92.tar.gz
+        rm -rf /tmp/dnsmasq-2.93 /tmp/dnsmasq-2.93.tar.gz
         exit 1
     fi
 }
@@ -268,14 +321,14 @@ install_dnsmasq(){
         error_detect_depends "yum -y install dnsmasq"
         if centosversion 6; then
             compile_dnsmasq
-            yes|cp -f /tmp/dnsmasq-2.92/src/dnsmasq /usr/sbin/dnsmasq && chmod +x /usr/sbin/dnsmasq
+            yes|cp -f /tmp/dnsmasq-2.93/src/dnsmasq /usr/sbin/dnsmasq && chmod +x /usr/sbin/dnsmasq
         fi
     elif check_sys packageManager apt; then
         error_detect_depends "apt -y install dnsmasq"
     fi
     if [[ ${fastmode} = "0" ]]; then
         compile_dnsmasq
-        yes|cp -f /tmp/dnsmasq-2.92/src/dnsmasq /usr/sbin/dnsmasq && chmod +x /usr/sbin/dnsmasq
+        yes|cp -f /tmp/dnsmasq-2.93/src/dnsmasq /usr/sbin/dnsmasq && chmod +x /usr/sbin/dnsmasq
     fi
     [ ! -f /usr/sbin/dnsmasq ] && echo -e "[${red}Error${plain}] 安装dnsmasq出现问题，请检查." && exit 1
     download /etc/dnsmasq.d/custom_netflix.conf https://raw.githubusercontent.com/myxuchangbin/dnsmasq_sniproxy_install/master/dnsmasq.conf
@@ -304,8 +357,14 @@ install_dnsmasq(){
         systemctl restart dnsmasq
     fi
     cd /tmp
-    rm -rf /tmp/dnsmasq-2.92 /tmp/dnsmasq-2.92.tar.gz /tmp/proxy-domains.txt
+    rm -rf /tmp/dnsmasq-2.93 /tmp/dnsmasq-2.93.tar.gz /tmp/proxy-domains.txt
     echo -e "[${green}Info${plain}] dnsmasq install complete..."
+}
+
+has_libpcre2_dev(){
+    command -v dpkg-query >/dev/null 2>&1 &&
+        dpkg-query -W -f='${db:Status-Status}' libpcre2-dev 2>/dev/null |
+        grep -qx installed
 }
 
 install_sniproxy(){
@@ -327,13 +386,19 @@ install_sniproxy(){
     fi
     bit=`uname -m`
     cd /tmp
-    if [[ ${fastmode} = "0" ]]; then
-        if [ -e sniproxy-0.6.1 ]; then
-            rm -rf sniproxy-0.6.1
-        fi
-        download /tmp/sniproxy-0.6.1.tar.gz https://github.com/dlundquist/sniproxy/archive/refs/tags/0.6.1.tar.gz
-        tar -zxf sniproxy-0.6.1.tar.gz
-        cd sniproxy-0.6.1
+    local sniproxy_version="0.6.1"
+    local sniproxy_url="https://github.com/dlundquist/sniproxy/archive/refs/tags/0.6.1.tar.gz"
+    if [[ "${fastmode}" == "0" ]] && has_libpcre2_dev; then
+        sniproxy_version="0.7.0"
+        sniproxy_url="https://github.com/dlundquist/sniproxy/archive/refs/tags/0.7.0.tar.gz"
+    fi
+    local sniproxy_dir="/tmp/sniproxy-${sniproxy_version}"
+    local sniproxy_tar="/tmp/sniproxy-${sniproxy_version}.tar.gz"
+    if [[ "${fastmode}" == "0" ]]; then
+        rm -rf "$sniproxy_dir"
+        download "$sniproxy_tar" "$sniproxy_url" || exit 1
+        tar -zxf "$sniproxy_tar" -C /tmp || exit 1
+        cd "$sniproxy_dir" || exit 1
     fi
     if check_sys packageManager yum; then
         if [[ ${fastmode} = "1" ]]; then
@@ -371,7 +436,22 @@ install_sniproxy(){
                 echo -e "${red}暂不支持${bit}内核，请使用编译模式安装！${plain}" && exit 1
             fi
         else
-            env NAME="sniproxy" DEBFULLNAME="sniproxy" DEBEMAIL="sniproxy@example.com" EMAIL="sniproxy@example.com" ./autogen.sh && ./configure --prefix=/usr && make && make install
+            if ! env NAME="sniproxy" \
+                DEBFULLNAME="sniproxy" \
+                DEBEMAIL="sniproxy@example.com" \
+                EMAIL="sniproxy@example.com" \
+                ./autogen.sh; then
+                echo -e "[${red}Error${plain}] sniproxy autogen.sh 失败。"
+                exit 1
+            fi
+            local configure_args=(--prefix=/usr)
+            if [[ "${sniproxy_version}" == "0.7.0" ]]; then
+                configure_args+=(--enable-dns)
+            fi
+            if ! ./configure "${configure_args[@]}" || ! make || ! make install; then
+                echo -e "[${red}Error${plain}] sniproxy 编译或安装失败。"
+                exit 1
+            fi
         fi  
         download /etc/systemd/system/sniproxy.service https://raw.githubusercontent.com/myxuchangbin/dnsmasq_sniproxy_install/master/sniproxy.service
         systemctl daemon-reload
@@ -399,7 +479,7 @@ install_sniproxy(){
         systemctl restart sniproxy || (echo -e "[${red}Error:${plain}] Failed to start sniproxy." && exit 1)
     fi
     cd /tmp
-    rm -rf /tmp/sniproxy-0.6.1/
+    rm -rf "$sniproxy_dir" "$sniproxy_tar"
     rm -rf /tmp/sniproxy-domains.txt
     echo -e "[${green}Info${plain}] sniproxy install complete..."
 }
@@ -464,15 +544,15 @@ help(){
 
 install_all(){
     ports="53 80 443"
-    publicip=$(get_ip)
     hello
     ready_install
+    publicip=$(get_ip)
     install_dnsmasq
     install_sniproxy
     echo ""
     echo -e "${yellow}Dnsmasq + SNI Proxy 已完成安装！${plain}"
     echo ""
-    echo -e "${yellow}将您的DNS更改为 $(get_ip) 即可以观看Netflix节目了。${plain}"
+    echo -e "${yellow}将您的DNS更改为 ${publicip} 即可以观看Netflix节目了。${plain}"
     echo ""
 }
 
@@ -507,7 +587,7 @@ only_dnsmasq(){
     echo ""
     echo -e "${yellow}Dnsmasq 已完成安装！${plain}"
     echo ""
-    echo -e "${yellow}将您的DNS更改为 $(get_ip) 即可以观看Netflix节目了。${plain}"
+    echo -e "${yellow}将您的DNS更改为 ${publicip} 即可以观看Netflix节目了。${plain}"
     echo ""
 }
 
@@ -515,11 +595,12 @@ only_sniproxy(){
     ports="80 443"
     hello
     ready_install
+    publicip=$(get_ip)
     install_sniproxy
     echo ""
     echo -e "${yellow}SNI Proxy 已完成安装！${plain}"
     echo ""
-    echo -e "${yellow}将Netflix的相关域名解析到 $(get_ip) 即可以观看Netflix节目了。${plain}"
+    echo -e "${yellow}将Netflix的相关域名解析到 ${publicip} 即可以观看Netflix节目了。${plain}"
     echo ""
 }
 
